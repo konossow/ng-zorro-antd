@@ -18,6 +18,7 @@ import {
   OnChanges,
   OnDestroy,
   OnInit,
+  Optional,
   Output,
   Renderer2,
   SimpleChanges,
@@ -26,10 +27,10 @@ import {
   ViewContainerRef,
   ViewEncapsulation
 } from '@angular/core';
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
 import { cancelRequestAnimationFrame, reqAnimFrame } from 'ng-zorro-antd/core/polyfill';
 import { NzResizeService } from 'ng-zorro-antd/core/services';
-import { BooleanInput, NumberInput, NzSafeAny } from 'ng-zorro-antd/core/types';
+import { BooleanInput, NumberInput, NzSafeAny, NzTSType } from 'ng-zorro-antd/core/types';
 import { InputBoolean, InputNumber, isStyleSupport, measure } from 'ng-zorro-antd/core/util';
 
 import { Subject, Subscription } from 'rxjs';
@@ -37,10 +38,11 @@ import { takeUntil } from 'rxjs/operators';
 
 import { NzI18nService, NzTextI18nInterface } from 'ng-zorro-antd/i18n';
 
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import { NzTextCopyComponent } from './text-copy.component';
 import { NzTextEditComponent } from './text-edit.component';
 
-const NZ_CONFIG_COMPONENT_NAME = 'typography';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'typography';
 const EXPAND_ELEMENT_CLASSNAME = 'ant-typography-expand';
 
 @Component({
@@ -60,7 +62,10 @@ const EXPAND_ELEMENT_CLASSNAME = 'ant-typography-expand';
     <ng-container *ngIf="!editing">
       <ng-container
         *ngIf="
-          expanded || (!nzExpandable && nzEllipsisRows === 1 && !hasEllipsisObservers) || canCssEllipsis || (nzSuffix && expanded);
+          expanded ||
+            (!hasOperationsWithEllipsis && nzEllipsisRows === 1 && !hasEllipsisObservers) ||
+            canCssEllipsis ||
+            (nzSuffix && expanded);
           else jsEllipsis
         "
       >
@@ -75,20 +80,34 @@ const EXPAND_ELEMENT_CLASSNAME = 'ant-typography-expand';
       </ng-template>
     </ng-container>
 
-    <nz-text-edit *ngIf="nzEditable" [text]="nzContent" (endEditing)="onEndEditing($event)" (startEditing)="onStartEditing()">
-    </nz-text-edit>
+    <nz-text-edit
+      *ngIf="nzEditable"
+      [text]="nzContent"
+      [icon]="nzEditIcon"
+      [tooltip]="nzEditTooltip"
+      (endEditing)="onEndEditing($event)"
+      (startEditing)="onStartEditing()"
+    ></nz-text-edit>
 
-    <nz-text-copy *ngIf="nzCopyable && !editing" [text]="copyText" (textCopy)="onTextCopy($event)"></nz-text-copy>
+    <nz-text-copy
+      *ngIf="nzCopyable && !editing"
+      [text]="copyText"
+      [tooltips]="nzCopyTooltips"
+      [icons]="nzCopyIcons"
+      (textCopy)="onTextCopy($event)"
+    ></nz-text-copy>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   preserveWhitespaces: false,
   host: {
     '[class.ant-typography]': '!editing',
+    '[class.ant-typography-rtl]': 'dir === "rtl"',
     '[class.ant-typography-edit-content]': 'editing',
     '[class.ant-typography-secondary]': 'nzType === "secondary"',
     '[class.ant-typography-warning]': 'nzType === "warning"',
     '[class.ant-typography-danger]': 'nzType === "danger"',
+    '[class.ant-typography-success]': 'nzType === "success"',
     '[class.ant-typography-disabled]': 'nzDisabled',
     '[class.ant-typography-ellipsis]': 'nzEllipsis && !expanded',
     '[class.ant-typography-ellipsis-single-line]': 'canCssEllipsis && nzEllipsisRows === 1',
@@ -97,6 +116,8 @@ const EXPAND_ELEMENT_CLASSNAME = 'ant-typography-expand';
   }
 })
 export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
+
   static ngAcceptInputType_nzCopyable: BooleanInput;
   static ngAcceptInputType_nzEditable: BooleanInput;
   static ngAcceptInputType_nzDisabled: BooleanInput;
@@ -109,9 +130,13 @@ export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, 
   @Input() @InputBoolean() nzDisabled = false;
   @Input() @InputBoolean() nzExpandable = false;
   @Input() @InputBoolean() nzEllipsis = false;
+  @Input() @WithConfig() nzCopyTooltips?: [NzTSType, NzTSType] | null = undefined;
+  @Input() @WithConfig() nzCopyIcons: [NzTSType, NzTSType] = ['copy', 'check'];
+  @Input() @WithConfig() nzEditTooltip?: null | NzTSType = undefined;
+  @Input() @WithConfig() nzEditIcon: NzTSType = 'edit';
   @Input() nzContent?: string;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputNumber() nzEllipsisRows: number = 1;
-  @Input() nzType: 'secondary' | 'warning' | 'danger' | undefined;
+  @Input() @WithConfig() @InputNumber() nzEllipsisRows: number = 1;
+  @Input() nzType: 'secondary' | 'warning' | 'danger' | 'success' | undefined;
   @Input() nzCopyText: string | undefined;
   @Input() nzSuffix: string | undefined;
   @Output() readonly nzContentChange = new EventEmitter<string>();
@@ -135,6 +160,7 @@ export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, 
   isEllipsis: boolean = true;
   expanded: boolean = false;
   ellipsisStr = '...';
+  dir: Direction = 'ltr';
 
   get hasEllipsisObservers(): boolean {
     return this.nzOnEllipsis.observers.length > 0;
@@ -142,6 +168,10 @@ export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, 
 
   get canCssEllipsis(): boolean {
     return this.nzEllipsis && this.cssEllipsis && !this.expanded && !this.hasEllipsisObservers;
+  }
+
+  get hasOperationsWithEllipsis(): boolean {
+    return (this.nzCopyable || this.nzEditable || this.nzExpandable) && this.nzEllipsis;
   }
 
   private viewInit = false;
@@ -161,7 +191,8 @@ export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, 
     private platform: Platform,
     private i18n: NzI18nService,
     @Inject(DOCUMENT) document: NzSafeAny,
-    private resizeService: NzResizeService
+    private resizeService: NzResizeService,
+    @Optional() private directionality: Directionality
   ) {
     this.document = document;
   }
@@ -180,6 +211,7 @@ export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, 
     if (this.nzContent === text) {
       this.renderOnNextFrame();
     }
+    this.cdr.markForCheck();
   }
 
   onExpand(): void {
@@ -298,6 +330,13 @@ export class NzTypographyComponent implements OnInit, AfterViewInit, OnDestroy, 
       this.locale = this.i18n.getLocaleData('Text');
       this.cdr.markForCheck();
     });
+
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.cdr.detectChanges();
+    });
+
+    this.dir = this.directionality.value;
   }
 
   ngAfterViewInit(): void {

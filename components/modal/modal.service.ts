@@ -3,8 +3,9 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
+import { Directionality } from '@angular/cdk/bidi';
 import { ComponentType, Overlay, OverlayConfig, OverlayRef } from '@angular/cdk/overlay';
-import { ComponentPortal, PortalInjector, TemplatePortal } from '@angular/cdk/portal';
+import { ComponentPortal, TemplatePortal } from '@angular/cdk/portal';
 import { Injectable, Injector, OnDestroy, Optional, SkipSelf, TemplateRef } from '@angular/core';
 import { NzConfigService } from 'ng-zorro-antd/core/config';
 import { warn } from 'ng-zorro-antd/core/logger';
@@ -13,7 +14,7 @@ import { isNotNil } from 'ng-zorro-antd/core/util';
 import { defer, Observable, Subject } from 'rxjs';
 import { startWith } from 'rxjs/operators';
 
-import { MODAL_MASK_CLASS_NAME, NZ_CONFIG_COMPONENT_NAME } from './modal-config';
+import { MODAL_MASK_CLASS_NAME, NZ_CONFIG_MODULE_NAME } from './modal-config';
 import { NzModalConfirmContainerComponent } from './modal-confirm-container.component';
 import { BaseModalContainerComponent } from './modal-container';
 import { NzModalContainerComponent } from './modal-container.component';
@@ -45,7 +46,8 @@ export class NzModalService implements OnDestroy {
     private overlay: Overlay,
     private injector: Injector,
     private nzConfigService: NzConfigService,
-    @Optional() @SkipSelf() private parentModal: NzModalService
+    @Optional() @SkipSelf() private parentModal: NzModalService,
+    @Optional() private directionality: Directionality
   ) {}
 
   create<T, R = NzSafeAny>(config: ModalOptions<T, R>): NzModalRef<T, R> {
@@ -123,14 +125,14 @@ export class NzModalService implements OnDestroy {
   }
 
   private createOverlay(config: ModalOptions): OverlayRef {
-    const globalConfig = this.nzConfigService.getConfigForComponent(NZ_CONFIG_COMPONENT_NAME) || {};
+    const globalConfig: NzSafeAny = this.nzConfigService.getConfigForComponent(NZ_CONFIG_MODULE_NAME) || {};
     const overlayConfig = new OverlayConfig({
       hasBackdrop: true,
       scrollStrategy: this.overlay.scrollStrategies.block(),
       positionStrategy: this.overlay.position().global(),
-      disposeOnNavigation: getValueWithConfig(config.nzCloseOnNavigation, globalConfig.nzCloseOnNavigation, true)
+      disposeOnNavigation: getValueWithConfig(config.nzCloseOnNavigation, globalConfig.nzCloseOnNavigation, true),
+      direction: getValueWithConfig(config.nzDirection, globalConfig.nzDirection, this.directionality.value)
     });
-
     if (getValueWithConfig(config.nzMask, globalConfig.nzMask, true)) {
       overlayConfig.backdropClass = MODAL_MASK_CLASS_NAME;
     }
@@ -140,13 +142,13 @@ export class NzModalService implements OnDestroy {
 
   private attachModalContainer(overlayRef: OverlayRef, config: ModalOptions): BaseModalContainerComponent {
     const userInjector = config && config.nzViewContainerRef && config.nzViewContainerRef.injector;
-    const injector = new PortalInjector(
-      userInjector || this.injector,
-      new WeakMap<NzSafeAny, NzSafeAny>([
-        [OverlayRef, overlayRef],
-        [ModalOptions, config]
-      ])
-    );
+    const injector = Injector.create({
+      parent: userInjector || this.injector,
+      providers: [
+        { provide: OverlayRef, useValue: overlayRef },
+        { provide: ModalOptions, useValue: config }
+      ]
+    });
 
     const ContainerComponent =
       config.nzModalType === 'confirm'
@@ -186,11 +188,13 @@ export class NzModalService implements OnDestroy {
     return modalRef;
   }
 
-  private createInjector<T, R>(modalRef: NzModalRef<T, R>, config: ModalOptions<T>): PortalInjector {
+  private createInjector<T, R>(modalRef: NzModalRef<T, R>, config: ModalOptions<T>): Injector {
     const userInjector = config && config.nzViewContainerRef && config.nzViewContainerRef.injector;
-    const injectionTokens = new WeakMap<NzSafeAny, NzSafeAny>([[NzModalRef, modalRef]]);
 
-    return new PortalInjector(userInjector || this.injector, injectionTokens);
+    return Injector.create({
+      parent: userInjector || this.injector,
+      providers: [{ provide: NzModalRef, useValue: modalRef }]
+    });
   }
 
   private confirmFactory<T>(options: ModalOptions<T> = {}, confirmType: ConfirmType): NzModalRef<T> {

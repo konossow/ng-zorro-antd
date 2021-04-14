@@ -24,22 +24,24 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { warnDeprecation } from 'ng-zorro-antd/core/logger';
 import { NzNoAnimationDirective } from 'ng-zorro-antd/core/no-animation';
 import { CandyDate, cloneDate, CompatibleValue } from 'ng-zorro-antd/core/time';
 import { BooleanInput, FunctionProp, NzSafeAny, OnChangeType, OnTouchedType } from 'ng-zorro-antd/core/types';
 import { InputBoolean, toBoolean, valueFunctionProp } from 'ng-zorro-antd/core/util';
-import { DateHelperService, NzDatePickerI18nInterface, NzI18nService } from 'ng-zorro-antd/i18n';
+import { DateHelperService, NzDatePickerI18nInterface, NzDatePickerLangI18nInterface, NzI18nService } from 'ng-zorro-antd/i18n';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { DatePickerService } from './date-picker.service';
 
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { Direction, Directionality } from '@angular/cdk/bidi';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
 import { NzPickerComponent } from './picker.component';
 import { CompatibleDate, DisabledTimeFn, NzDateMode, PresetRanges, SupportTimeOptions } from './standard-types';
 
 const POPUP_STYLE_PATCH = { position: 'relative' }; // Aim to override antd's style to support overlay's position strategy (position:absolute will cause it not working beacuse the overlay can't get the height/width of it's content)
-const NZ_CONFIG_COMPONENT_NAME = 'datePicker';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'datePicker';
+
+export type NzDatePickerSizeType = 'large' | 'default' | 'small';
 
 /**
  * The base picker for all common APIs
@@ -52,53 +54,60 @@ const NZ_CONFIG_COMPONENT_NAME = 'datePicker';
   template: `
     <div
       nz-picker
+      style="display: inherit; align-items: center; width: 100%;"
+      [id]="nzId"
       [isRange]="isRange"
       [open]="nzOpen"
+      [dir]="dir"
       [separator]="nzSeparator"
       [disabled]="nzDisabled"
       [inputReadOnly]="nzInputReadOnly"
+      [inline]="nzInline"
       [format]="nzFormat"
       [allowClear]="nzAllowClear"
       [autoFocus]="nzAutoFocus"
       [placeholder]="nzPlaceHolder"
-      [ngClass]="nzClassName"
-      style="display: inherit; align-items: center; width: 100%;"
-      [ngStyle]="nzStyle"
       [dropdownClassName]="nzDropdownClassName"
+      [class.ant-picker-dropdown-rtl]="dir === 'rtl'"
       [popupStyle]="nzPopupStyle"
       [noAnimation]="!!noAnimation?.nzNoAnimation"
       [suffixIcon]="nzSuffixIcon"
+      [hasBackdrop]="nzBackdrop"
       (openChange)="onOpenChange($event)"
       (focusChange)="onFocusChange($event)"
+      [nzId]="nzId"
     >
       <date-range-popup
-        *ngIf="realOpenState"
+        *ngIf="picker.realOpenState || nzInline"
         [isRange]="isRange"
+        [inline]="nzInline"
         [defaultPickerValue]="nzDefaultPickerValue"
-        [showWeek]="showWeek"
-        [panelMode]="nzMode"
+        [showWeek]="nzMode === 'week'"
+        [panelMode]="panelMode"
         (panelModeChange)="onPanelModeChange($event)"
         (calendarChange)="onCalendarChange($event)"
         [locale]="nzLocale?.lang!"
-        [showToday]="realShowToday"
+        [showToday]="nzMode === 'date' && nzShowToday && !isRange && !nzShowTime"
+        [showNow]="nzMode === 'date' && nzShowNow && !isRange && !!nzShowTime"
         [showTime]="nzShowTime"
-        [format]="nzFormat"
         [dateRender]="nzDateRender"
         [disabledDate]="nzDisabledDate"
         [disabledTime]="nzDisabledTime"
-        [placeholder]="nzPlaceHolder"
         [extraFooter]="extraFooter"
         [ranges]="nzRanges"
+        [dir]="dir"
         (resultOk)="onResultOk()"
       ></date-range-popup>
     </div>
   `,
   host: {
-    '[class.ant-picker]': `true`,
     '[class.ant-picker-range]': `isRange`,
     '[class.ant-picker-large]': `nzSize === 'large'`,
     '[class.ant-picker-small]': `nzSize === 'small'`,
     '[class.ant-picker-disabled]': `nzDisabled`,
+    '[class.ant-picker-rtl]': `dir === 'rtl'`,
+    '[class.ant-picker-borderless]': `nzBorderless`,
+    '[class.ant-picker-inline]': `nzInline`,
     '(click)': 'picker.onClickInputBox($event)'
   },
   providers: [
@@ -111,54 +120,56 @@ const NZ_CONFIG_COMPONENT_NAME = 'datePicker';
   ]
 })
 export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, ControlValueAccessor {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
   static ngAcceptInputType_nzAllowClear: BooleanInput;
   static ngAcceptInputType_nzAutoFocus: BooleanInput;
   static ngAcceptInputType_nzDisabled: BooleanInput;
+  static ngAcceptInputType_nzBorderless: BooleanInput;
   static ngAcceptInputType_nzInputReadOnly: BooleanInput;
+  static ngAcceptInputType_nzInline: BooleanInput;
   static ngAcceptInputType_nzOpen: BooleanInput;
   static ngAcceptInputType_nzShowToday: BooleanInput;
+  static ngAcceptInputType_nzShowNow: BooleanInput;
   static ngAcceptInputType_nzMode: NzDateMode | NzDateMode[] | string | string[] | null | undefined;
   static ngAcceptInputType_nzShowTime: BooleanInput | SupportTimeOptions | null | undefined;
 
   isRange: boolean = false; // Indicate whether the value is a range value
-  showWeek: boolean = false; // Should show as week picker
-  focused: boolean = false;
   extraFooter?: TemplateRef<NzSafeAny> | string;
+  dir: Direction = 'ltr';
 
-  protected destroyed$: Subject<void> = new Subject();
-  protected isCustomPlaceHolder: boolean = false;
+  public panelMode: NzDateMode | NzDateMode[] = 'date';
+  private destroyed$: Subject<void> = new Subject();
+  private isCustomPlaceHolder: boolean = false;
+  private isCustomFormat: boolean = false;
   private showTime: SupportTimeOptions | boolean = false;
 
   // --- Common API
   @Input() @InputBoolean() nzAllowClear: boolean = true;
   @Input() @InputBoolean() nzAutoFocus: boolean = false;
   @Input() @InputBoolean() nzDisabled: boolean = false;
+  @Input() @InputBoolean() nzBorderless: boolean = false;
   @Input() @InputBoolean() nzInputReadOnly: boolean = false;
+  @Input() @InputBoolean() nzInline: boolean = false;
   @Input() @InputBoolean() nzOpen?: boolean;
-  /**
-   * @deprecated 10.0.0. This is deprecated and going to be removed in 10.0.0.
-   */
-  @Input() nzClassName: string = '';
   @Input() nzDisabledDate?: (d: Date) => boolean;
   @Input() nzLocale!: NzDatePickerI18nInterface;
-  @Input() nzPlaceHolder: string | [string, string] = '';
+  @Input() nzPlaceHolder: string | string[] = '';
   @Input() nzPopupStyle: object = POPUP_STYLE_PATCH;
   @Input() nzDropdownClassName?: string;
-  @Input() nzSize: 'large' | 'small' | 'default' = 'default';
-  /**
-   * @deprecated 10.0.0. This is deprecated and going to be removed in 10.0.0.
-   */
-  @Input() nzStyle: object | null = null;
+  @Input() nzSize: NzDatePickerSizeType = 'default';
   @Input() nzFormat!: string;
   @Input() nzDateRender?: TemplateRef<NzSafeAny> | string | FunctionProp<TemplateRef<Date> | string>;
   @Input() nzDisabledTime?: DisabledTimeFn;
   @Input() nzRenderExtraFooter?: TemplateRef<NzSafeAny> | string | FunctionProp<TemplateRef<NzSafeAny> | string>;
   @Input() @InputBoolean() nzShowToday: boolean = true;
-  @Input() nzMode: NzDateMode | NzDateMode[] = 'date';
+  @Input() nzMode: NzDateMode = 'date';
+  @Input() @InputBoolean() nzShowNow: boolean = true;
   @Input() nzRanges?: PresetRanges;
   @Input() nzDefaultPickerValue: CompatibleDate | null = null;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzSeparator?: string = undefined;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzSuffixIcon: string | TemplateRef<NzSafeAny> = 'calendar';
+  @Input() @WithConfig() nzSeparator?: string = undefined;
+  @Input() @WithConfig() nzSuffixIcon: string | TemplateRef<NzSafeAny> = 'calendar';
+  @Input() @WithConfig() nzBackdrop = false;
+  @Input() nzId: string | null = null;
 
   // TODO(@wenqi73) The PanelMode need named for each pickers and export
   @Output() readonly nzOnPanelChange = new EventEmitter<NzDateMode | NzDateMode[] | string | string[]>();
@@ -176,10 +187,6 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
     this.showTime = typeof value === 'object' ? value : toBoolean(value);
   }
 
-  get realOpenState(): boolean {
-    return this.picker.animationOpenState;
-  } // Use picker's real open state to let re-render the picker's content when shown up
-
   constructor(
     public nzConfigService: NzConfigService,
     public datePickerService: DatePickerService,
@@ -188,8 +195,12 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
     private renderer: Renderer2,
     private elementRef: ElementRef,
     protected dateHelper: DateHelperService,
+    @Optional() private directionality: Directionality,
     @Host() @Optional() public noAnimation?: NzNoAnimationDirective
-  ) {}
+  ) {
+    // TODO: move to host after View Engine deprecation
+    this.elementRef.nativeElement.classList.add('ant-picker');
+  }
 
   ngOnInit(): void {
     // Subscribe the every locale change if the nzLocale is not handled by user
@@ -206,7 +217,7 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
       if (this.isRange) {
         const vAsRange = value as CandyDate[];
         if (vAsRange.length) {
-          this.onChangeFn([vAsRange[0].nativeDate, vAsRange[1].nativeDate]);
+          this.onChangeFn([vAsRange[0]?.nativeDate ?? null, vAsRange[1]?.nativeDate ?? null]);
         } else {
           this.onChangeFn([]);
         }
@@ -219,17 +230,16 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
       }
       this.onTouchedFn();
       // When value emitted, overlay will be closed
-      this.picker.hideOverlay();
+      this.close();
     });
 
-    // Default format when it's empty
-    if (!this.nzFormat) {
-      if (this.showWeek) {
-        this.nzFormat = 'yyyy-ww'; // Format for week
-      } else {
-        this.nzFormat = this.nzShowTime ? 'yyyy-MM-dd HH:mm:ss' : 'yyyy-MM-dd';
-      }
-    }
+    this.setModeAndFormat();
+
+    this.directionality.change?.pipe(takeUntil(this.destroyed$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.cdr.detectChanges();
+    });
+    this.dir = this.directionality.value;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -239,8 +249,12 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
     }
 
     // Mark as customized placeholder by user once nzPlaceHolder assigned at the first time
-    if (changes.nzPlaceHolder && changes.nzPlaceHolder.firstChange && typeof this.nzPlaceHolder !== 'undefined') {
+    if (changes.nzPlaceHolder?.currentValue) {
       this.isCustomPlaceHolder = true;
+    }
+
+    if (changes.nzFormat?.currentValue) {
+      this.isCustomFormat = true;
     }
 
     if (changes.nzLocale) {
@@ -252,20 +266,9 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
       this.extraFooter = valueFunctionProp(this.nzRenderExtraFooter!);
     }
 
-    if (changes.nzStyle) {
-      warnDeprecation(
-        `'nzStyle' in DatePicker is going to be removed in 10.0.0. Please use CSS style attribute like <nz-date-picker style="..."></nz-date-picker> instead.`
-      );
-    }
-
-    if (changes.nzClassName) {
-      warnDeprecation(
-        `'nzClassName' in DatePicker is going to be removed in 10.0.0. Please use CSS class attribute like <nz-date-picker class="..."></nz-date-picker> instead.`
-      );
-    }
-
     if (changes.nzMode) {
-      this.setPanelMode();
+      this.setDefaultPlaceHolder();
+      this.setModeAndFormat();
     }
   }
 
@@ -274,9 +277,23 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
     this.destroyed$.complete();
   }
 
-  setPanelMode(): void {
+  setModeAndFormat(): void {
+    const inputFormats: { [key in NzDateMode]?: string } = {
+      year: 'yyyy',
+      month: 'yyyy-MM',
+      week: this.i18n.getDateLocale() ? 'RRRR-II' : 'yyyy-ww', // Format for week
+      date: this.nzShowTime ? 'yyyy-MM-dd HH:mm:ss' : 'yyyy-MM-dd'
+    };
+
     if (!this.nzMode) {
-      this.nzMode = this.isRange ? ['date', 'date'] : 'date';
+      this.nzMode = 'date';
+    }
+
+    this.panelMode = this.isRange ? [this.nzMode, this.nzMode] : this.nzMode;
+
+    // Default format when it's empty
+    if (!this.isCustomFormat) {
+      this.nzFormat = inputFormats[this.nzMode as NzDateMode]!;
     }
   }
 
@@ -286,6 +303,14 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
    */
   onOpenChange(open: boolean): void {
     this.nzOnOpenChange.emit(open);
+  }
+
+  public open(): void {
+    this.picker.showOverlay();
+  }
+
+  public close(): void {
+    this.picker.hideOverlay();
   }
 
   // ------------------------------------------------------------------------
@@ -327,8 +352,28 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
 
   private setDefaultPlaceHolder(): void {
     if (!this.isCustomPlaceHolder && this.nzLocale) {
-      this.nzPlaceHolder = this.isRange ? (this.nzLocale.lang.rangePlaceholder as [string, string]) : this.nzLocale.lang.placeholder!;
+      const defaultPlaceholder: { [key in NzDateMode]?: string } = {
+        year: this.getPropertyOfLocale('yearPlaceholder'),
+        month: this.getPropertyOfLocale('monthPlaceholder'),
+        week: this.getPropertyOfLocale('weekPlaceholder'),
+        date: this.getPropertyOfLocale('placeholder')
+      };
+
+      const defaultRangePlaceholder: { [key in NzDateMode]?: string[] } = {
+        year: this.getPropertyOfLocale('rangeYearPlaceholder'),
+        month: this.getPropertyOfLocale('rangeMonthPlaceholder'),
+        week: this.getPropertyOfLocale('rangeWeekPlaceholder'),
+        date: this.getPropertyOfLocale('rangePlaceholder')
+      };
+
+      this.nzPlaceHolder = this.isRange
+        ? defaultRangePlaceholder[this.nzMode as NzDateMode]!
+        : defaultPlaceholder[this.nzMode as NzDateMode]!;
     }
+  }
+
+  private getPropertyOfLocale<T extends keyof NzDatePickerLangI18nInterface>(type: T): NzDatePickerLangI18nInterface[T] {
+    return this.nzLocale.lang[type] || this.i18n.getLocaleData(`DatePicker.lang.${type}`);
   }
 
   // Safe way of setting value with default
@@ -338,15 +383,9 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
     this.datePickerService.initialValue = newValue;
   }
 
-  get realShowToday(): boolean {
-    // Range only support in single date picker
-    return this.nzMode === 'date' && this.nzShowToday;
-  }
-
   onFocusChange(value: boolean): void {
-    this.focused = value;
     // TODO: avoid autoFocus cause change after checked error
-    if (this.focused) {
+    if (value) {
       this.renderer.addClass(this.elementRef.nativeElement, 'ant-picker-focused');
     } else {
       this.renderer.removeClass(this.elementRef.nativeElement, 'ant-picker-focused');
@@ -354,7 +393,6 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
   }
 
   onPanelModeChange(panelMode: NzDateMode | NzDateMode[]): void {
-    // this.nzMode = panelMode;
     this.nzOnPanelChange.emit(panelMode);
   }
 
@@ -366,12 +404,11 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
     }
   }
 
-  // Emitted when done with date selecting
   onResultOk(): void {
     if (this.isRange) {
       const value = this.datePickerService.value as CandyDate[];
       if (value.length) {
-        this.nzOnOk.emit([value[0].nativeDate, value[1].nativeDate]);
+        this.nzOnOk.emit([value[0]?.nativeDate || null, value[1]?.nativeDate || null]);
       } else {
         this.nzOnOk.emit([]);
       }
@@ -382,6 +419,5 @@ export class NzDatePickerComponent implements OnInit, OnChanges, OnDestroy, Cont
         this.nzOnOk.emit(null);
       }
     }
-    this.datePickerService.emitValue$.next();
   }
 }

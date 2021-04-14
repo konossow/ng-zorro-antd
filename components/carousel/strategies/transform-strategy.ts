@@ -3,20 +3,35 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
-import { QueryList } from '@angular/core';
+import { Platform } from '@angular/cdk/platform';
+import { ChangeDetectorRef, QueryList, Renderer2 } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 
 import { NzCarouselContentDirective } from '../carousel-content.directive';
-import { PointerVector } from '../typings';
+import { NzCarouselComponentAsSource, PointerVector } from '../typings';
 
 import { NzCarouselBaseStrategy } from './base-strategy';
 
-export class NzCarouselTransformStrategy extends NzCarouselBaseStrategy {
+interface NzCarouselTransformStrategyOptions {
+  direction: 'left' | 'right';
+}
+
+export class NzCarouselTransformStrategy extends NzCarouselBaseStrategy<NzCarouselTransformStrategyOptions> {
   private isDragging = false;
   private isTransitioning = false;
 
   private get vertical(): boolean {
     return this.carouselComponent!.vertical;
+  }
+
+  constructor(
+    carouselComponent: NzCarouselComponentAsSource,
+    cdr: ChangeDetectorRef,
+    renderer: Renderer2,
+    platform: Platform,
+    options?: NzCarouselTransformStrategyOptions
+  ) {
+    super(carouselComponent, cdr, renderer, platform, options);
   }
 
   dispose(): void {
@@ -30,7 +45,8 @@ export class NzCarouselTransformStrategy extends NzCarouselBaseStrategy {
     const carousel = this.carouselComponent!;
     const activeIndex = carousel.activeIndex;
 
-    if (this.contents.length) {
+    // We only do when we are in browser.
+    if (this.platform.isBrowser && this.contents.length) {
       this.renderer.setStyle(this.slickListEl, 'height', `${this.unitHeight}px`);
 
       if (this.vertical) {

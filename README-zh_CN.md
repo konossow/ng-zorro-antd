@@ -10,7 +10,7 @@ NG-ZORRO
 
 <div align="center">
 
-Ant Design 的 Angular 实现，开发和服务于企业级后台产品。
+`ng-zorro-antd` 是 Ant Design 的 Angular 实现，主要用于研发企业级中后台产品。全部代码开源并遵循 MIT 协议，任何企业、组织及个人均可免费使用。
 
 [![Azure branch](https://img.shields.io/azure-devops/build/ng-zorro/0d271b73-3774-4dbc-a081-088df0b28bf8/2/master?style=flat-square)](https://dev.azure.com/ng-zorro/NG-ZORRO/_build)
 [![Codecov](https://img.shields.io/codecov/c/github/NG-ZORRO/ng-zorro-antd.svg?style=flat-square)](https://codecov.io/gh/NG-ZORRO/ng-zorro-antd)
@@ -18,7 +18,7 @@ Ant Design 的 Angular 实现，开发和服务于企业级后台产品。
 [![npm package](https://img.shields.io/npm/v/ng-zorro-antd.svg?style=flat-square)](https://www.npmjs.org/package/ng-zorro-atnd)
 [![NPM downloads](http://img.shields.io/npm/dm/ng-zorro-antd.svg?style=flat-square)](https://npmjs.org/package/ng-zorro-antd)
 [![GitHub license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square)](https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE)
-[![Gitter](https://img.shields.io/gitter/room/ng-zorro/ng-zorro-antd.svg?style=flat-square)](https://gitter.im/ng-zorro/ng-zorro-antd)
+[![Discord](https://img.shields.io/discord/748677963142135818?label=Discord&style=flat-square)](https://discord.com/channels/748677963142135818/764322550712893451)
 [![extension-for-VSCode](https://img.shields.io/badge/extension%20for-VSCode-blue.svg?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=cipchk.ng-zorro-vscode)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 [![Twitter](https://img.shields.io/badge/Twitter-NG--ZORRO-blue.svg?style=flat-square&logo=twitter)](https://twitter.com/ng_zorro)
@@ -47,7 +47,7 @@ Ant Design 的 Angular 实现，开发和服务于企业级后台产品。
 
 ## 🖥 支持环境
 
-- Angular `^9.0.0` [![npm package](https://img.shields.io/npm/v/ng-zorro-antd.svg?style=flat-square)](https://www.npmjs.org/package/ng-zorro-antd)
+- Angular `^11.0.0` [![npm package](https://img.shields.io/npm/v/ng-zorro-antd.svg?style=flat-square)](https://www.npmjs.org/package/ng-zorro-antd)
 - 支持服务端渲染
 - 现代浏览器，以及 Internet Explorer 11+ （使用 [polyfills](https://angular.io/guide/browser-support)）
 - [Electron](http://electron.atom.io/)
@@ -146,16 +146,17 @@ $ npm run start
 
 1. [Stack Overflow](https://stackoverflow.com/questions/tagged/ng-zorro-antd)（English）
 2. [Segment Fault](https://segmentfault.com/t/ng-zorro)（中文）
-3. [![Gitter](https://img.shields.io/gitter/room/ng-zorro/ng-zorro-antd.svg?style=flat-square)](https://gitter.im/ng-zorro/ng-zorro-antd)
+3. [![Discord](https://img.shields.io/discord/748677963142135818?label=Discord&style=flat-square)](https://discord.com/channels/748677963142135818/764322550712893451)
 4. 加入钉钉 NG-ZORRO 自助服务群（中文）
 
 <img src="https://img.alicdn.com/tfs/TB1aRk.clCw3KVjSZFlXXcJkFXa-750-990.jpg" width="300">
 
 ## 🎉 谁在使用
 
-- [阿里巴巴](http://www.alibaba.com/)
-- [阿里云](http://www.aliyun.com/)
+- [阿里巴巴](https://www.alibaba.com/)
+- [阿里云](https://www.aliyun.com/)
 - [思特沃克](https://www.thoughtworks.com/)
+- [招商银行](http://www.cmbchina.com/)
 - [共道科技](https://www.gongdao.com/)
 - [优速快递](http://www.uce.cn/)
 - [轻流](https://qingflow.com/)
@@ -163,7 +164,8 @@ $ npm run start
 - [达观数据](http://datagrand.com/)
 - [Ververica](https://www.ververica.com/)
 - [Apache Flink](https://flink.apache.org/)
-- [Apache Zeppelin](http://zeppelin.apache.org/)
+- [Apache Zeppelin](https://zeppelin.apache.org/)
+- [Apache Submarine](https://submarine.apache.org/)
 - [Apache Metron](https://metron.apache.org/)
 - [Process Automation Group](http://pag.company/)
 - [ScentBird](https://www.scentbird.com/)

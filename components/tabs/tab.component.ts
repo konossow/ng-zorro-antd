@@ -13,13 +13,13 @@ import {
   Input,
   OnChanges,
   OnDestroy,
-  OnInit,
   Output,
   SimpleChanges,
   TemplateRef,
   ViewChild,
   ViewEncapsulation
 } from '@angular/core';
+import { TabTemplateContext } from './interfaces';
 
 import { Subject } from 'rxjs';
 
@@ -47,12 +47,12 @@ export const NZ_TAB_SET = new InjectionToken<NzSafeAny>('NZ_TAB_SET');
     <ng-template #contentTemplate><ng-content></ng-content></ng-template>
   `
 })
-export class NzTabComponent implements OnChanges, OnDestroy, OnInit {
+export class NzTabComponent implements OnChanges, OnDestroy {
   static ngAcceptInputType_nzDisabled: BooleanInput;
   static ngAcceptInputType_nzClosable: BooleanInput;
   static ngAcceptInputType_nzForceRender: BooleanInput;
 
-  @Input() nzTitle: string | TemplateRef<void> = '';
+  @Input() nzTitle: string | TemplateRef<TabTemplateContext> = '';
   @Input() @InputBoolean() nzClosable = false;
   @Input() nzCloseIcon: string | TemplateRef<NzSafeAny> = 'close';
   @Input() @InputBoolean() nzDisabled = false;
@@ -60,12 +60,8 @@ export class NzTabComponent implements OnChanges, OnDestroy, OnInit {
   @Output() readonly nzSelect = new EventEmitter<void>();
   @Output() readonly nzDeselect = new EventEmitter<void>();
   @Output() readonly nzClick = new EventEmitter<void>();
+  @Output() readonly nzContextmenu = new EventEmitter<MouseEvent>();
 
-  /**
-   * @deprecated Will be removed in 11.0.0
-   * @breaking-change 11.0.0
-   */
-  @ViewChild('tabLinkTemplate', { static: true }) tabLinkTemplate!: TemplateRef<void>;
   @ContentChild(NzTabLinkTemplateDirective, { static: false }) nzTabLinkTemplateDirective!: NzTabLinkTemplateDirective;
   @ContentChild(NzTabDirective, { static: false, read: TemplateRef }) template: TemplateRef<void> | null = null;
   @ContentChild(NzTabLinkDirective, { static: false }) linkDirective!: NzTabLinkDirective;
@@ -80,8 +76,8 @@ export class NzTabComponent implements OnChanges, OnDestroy, OnInit {
     return this.template || this.contentTemplate;
   }
 
-  get label(): string | TemplateRef<void> {
-    return this.nzTitle || this.nzTabLinkTemplateDirective?.templateRef || this.tabLinkTemplate;
+  get label(): string | TemplateRef<NzSafeAny> {
+    return this.nzTitle || this.nzTabLinkTemplateDirective?.templateRef;
   }
 
   constructor(@Inject(NZ_TAB_SET) public closestTabSet: NzSafeAny) {}
@@ -96,6 +92,4 @@ export class NzTabComponent implements OnChanges, OnDestroy, OnInit {
   ngOnDestroy(): void {
     this.stateChanges.complete();
   }
-
-  ngOnInit(): void {}
 }

@@ -2,7 +2,7 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
-
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import { CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import {
   AfterViewInit,
@@ -26,7 +26,7 @@ import {
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { treeCollapseMotion } from 'ng-zorro-antd/core/animation';
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
 import { NzNoAnimationDirective } from 'ng-zorro-antd/core/no-animation';
 import {
   flattenTreeData,
@@ -49,7 +49,7 @@ export function NzTreeServiceFactory(higherOrderService: NzTreeBaseService, tree
   return higherOrderService ? higherOrderService : treeService;
 }
 
-const NZ_CONFIG_COMPONENT_NAME = 'tree';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'tree';
 
 @Component({
   selector: 'nz-tree',
@@ -91,6 +91,7 @@ const NZ_CONFIG_COMPONENT_NAME = 'tree';
     </div>
     <ng-template #nodeTemplate let-treeNode>
       <nz-tree-node
+        builtin
         [icon]="treeNode.icon"
         [title]="treeNode.title"
         [isLoading]="treeNode.isLoading"
@@ -130,8 +131,7 @@ const NZ_CONFIG_COMPONENT_NAME = 'tree';
         (nzOnDragLeave)="eventTriggerChanged($event)"
         (nzOnDragEnd)="eventTriggerChanged($event)"
         (nzOnDrop)="eventTriggerChanged($event)"
-      >
-      </nz-tree-node>
+      ></nz-tree-node>
     </ng-template>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -154,6 +154,7 @@ const NZ_CONFIG_COMPONENT_NAME = 'tree';
     '[class.ant-select-tree-icon-hide]': `nzSelectMode && !nzShowIcon`,
     '[class.ant-select-tree-block-node]': `nzSelectMode && nzBlockNode`,
     '[class.ant-tree]': `!nzSelectMode`,
+    '[class.ant-tree-rtl]': `dir === 'rtl'`,
     '[class.ant-tree-show-line]': `!nzSelectMode && nzShowLine`,
     '[class.ant-tree-icon-hide]': `!nzSelectMode && !nzShowIcon`,
     '[class.ant-tree-block-node]': `!nzSelectMode && nzBlockNode`,
@@ -161,6 +162,8 @@ const NZ_CONFIG_COMPONENT_NAME = 'tree';
   }
 })
 export class NzTreeComponent extends NzTreeBase implements OnInit, OnDestroy, ControlValueAccessor, OnChanges, AfterViewInit {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
+
   static ngAcceptInputType_nzShowIcon: BooleanInput;
   static ngAcceptInputType_nzHideUnMatched: BooleanInput;
   static ngAcceptInputType_nzBlockNode: BooleanInput;
@@ -174,9 +177,9 @@ export class NzTreeComponent extends NzTreeBase implements OnInit, OnDestroy, Co
   static ngAcceptInputType_nzDraggable: BooleanInput;
   static ngAcceptInputType_nzMultiple: BooleanInput;
 
-  @Input() @InputBoolean() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzShowIcon: boolean = false;
-  @Input() @InputBoolean() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzHideUnMatched: boolean = false;
-  @Input() @InputBoolean() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzBlockNode: boolean = false;
+  @Input() @InputBoolean() @WithConfig() nzShowIcon: boolean = false;
+  @Input() @InputBoolean() @WithConfig() nzHideUnMatched: boolean = false;
+  @Input() @InputBoolean() @WithConfig() nzBlockNode: boolean = false;
   @Input() @InputBoolean() nzExpandAll = false;
   @Input() @InputBoolean() nzSelectMode = false;
   @Input() @InputBoolean() nzCheckStrictly = false;
@@ -197,12 +200,13 @@ export class NzTreeComponent extends NzTreeBase implements OnInit, OnDestroy, Co
   @Input() nzExpandedKeys: NzTreeNodeKey[] = [];
   @Input() nzSelectedKeys: NzTreeNodeKey[] = [];
   @Input() nzCheckedKeys: NzTreeNodeKey[] = [];
-  @Input() nzSearchValue?: string;
+  @Input() nzSearchValue: string = '';
   @Input() nzSearchFunc?: (node: NzTreeNodeOptions) => boolean;
   @ContentChild('nzTreeTemplate', { static: true }) nzTreeTemplateChild!: TemplateRef<{ $implicit: NzTreeNode; origin: NzTreeNodeOptions }>;
   @ViewChild(CdkVirtualScrollViewport, { read: CdkVirtualScrollViewport }) cdkVirtualScrollViewport!: CdkVirtualScrollViewport;
   nzFlattenNodes: NzTreeNode[] = [];
   beforeInit = true;
+  dir: Direction = 'ltr';
 
   @Output() readonly nzExpandedKeysChange: EventEmitter<string[]> = new EventEmitter<string[]>();
   @Output() readonly nzSelectedKeysChange: EventEmitter<string[]> = new EventEmitter<string[]>();
@@ -437,6 +441,7 @@ export class NzTreeComponent extends NzTreeBase implements OnInit, OnDestroy, Co
     nzTreeService: NzTreeBaseService,
     public nzConfigService: NzConfigService,
     private cdr: ChangeDetectorRef,
+    @Optional() private directionality: Directionality,
     @Host() @Optional() public noAnimation?: NzNoAnimationDirective
   ) {
     super(nzTreeService);
@@ -446,6 +451,12 @@ export class NzTreeComponent extends NzTreeBase implements OnInit, OnDestroy, Co
     this.nzTreeService.flattenNodes$.pipe(takeUntil(this.destroy$)).subscribe(data => {
       this.nzFlattenNodes = data;
       this.cdr.markForCheck();
+    });
+
+    this.dir = this.directionality.value;
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.cdr.detectChanges();
     });
   }
 

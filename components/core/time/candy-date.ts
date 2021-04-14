@@ -3,50 +3,69 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
-import addMonths from 'date-fns/addMonths';
-import addYears from 'date-fns/addYears';
-import differenceInCalendarDays from 'date-fns/differenceInCalendarDays';
-import differenceInCalendarMonths from 'date-fns/differenceInCalendarMonths';
-import differenceInCalendarYears from 'date-fns/differenceInCalendarYears';
-import differenceInHours from 'date-fns/differenceInHours';
-import differenceInMinutes from 'date-fns/differenceInMinutes';
-import differenceInSeconds from 'date-fns/differenceInSeconds';
-import isFirstDayOfMonth from 'date-fns/isFirstDayOfMonth';
-import isLastDayOfMonth from 'date-fns/isLastDayOfMonth';
-import isSameDay from 'date-fns/isSameDay';
-import isSameHour from 'date-fns/isSameHour';
-import isSameMinute from 'date-fns/isSameMinute';
-import isSameMonth from 'date-fns/isSameMonth';
-import isSameSecond from 'date-fns/isSameSecond';
-import isSameYear from 'date-fns/isSameYear';
-import isToday from 'date-fns/isToday';
-import isValid from 'date-fns/isValid';
-import setDay from 'date-fns/setDay';
-import setMonth from 'date-fns/setMonth';
-import setYear from 'date-fns/setYear';
-import startOfMonth from 'date-fns/startOfMonth';
-import startOfWeek from 'date-fns/startOfWeek';
+import {
+  addMonths,
+  addYears,
+  differenceInCalendarDays,
+  differenceInCalendarMonths,
+  differenceInCalendarYears,
+  differenceInHours,
+  differenceInMinutes,
+  differenceInSeconds,
+  isFirstDayOfMonth,
+  isLastDayOfMonth,
+  isSameDay,
+  isSameHour,
+  isSameMinute,
+  isSameMonth,
+  isSameSecond,
+  isSameYear,
+  isToday,
+  isValid,
+  setDay,
+  setMonth,
+  setYear,
+  startOfMonth,
+  startOfWeek
+} from 'date-fns';
 import { warn } from 'ng-zorro-antd/core/logger';
 import { IndexableObject, NzSafeAny } from 'ng-zorro-antd/core/types';
 
+export type CandyDateMode = 'decade' | 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second';
+export type NormalizedMode = 'decade' | 'year' | 'month';
 export type WeekDayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-export type CandyDateCompareGrain = 'year' | 'month' | 'day' | 'hour' | 'minute' | 'second';
 export type CandyDateType = CandyDate | Date | null;
 export type SingleValue = CandyDate | null;
 export type CompatibleValue = SingleValue | SingleValue[];
 
-export function sortRangeValue(rangeValue: SingleValue[]): SingleValue[] {
-  if (Array.isArray(rangeValue)) {
-    const [start, end] = rangeValue;
-    return start && end && start.isAfterSecond(end) ? [end, start] : [start, end];
-  }
-  return rangeValue;
+export function wrongSortOrder(rangeValue: SingleValue[]): boolean {
+  const [start, end] = rangeValue;
+  return !!start && !!end && end.isBeforeDay(start);
 }
 
-export function normalizeRangeValue(value: SingleValue[]): CandyDate[] {
-  const [start, end] = value || [];
-  const newStart = start || new CandyDate();
-  const newEnd = end?.isSameMonth(newStart) ? end.addMonths(1) : end || newStart.addMonths(1);
+export function normalizeRangeValue(
+  value: SingleValue[],
+  hasTimePicker: boolean,
+  type: NormalizedMode = 'month',
+  activePart: 'left' | 'right' = 'left'
+): CandyDate[] {
+  const [start, end] = value;
+  let newStart: CandyDate = start || new CandyDate();
+  let newEnd: CandyDate = end || (hasTimePicker ? newStart : newStart.add(1, type));
+
+  if (start && !end) {
+    newStart = start;
+    newEnd = hasTimePicker ? start : start.add(1, type);
+  } else if (!start && end) {
+    newStart = hasTimePicker ? end : end.add(-1, type);
+    newEnd = end;
+  } else if (start && end && !hasTimePicker) {
+    if (activePart === 'left') {
+      newEnd = newStart.add(1, type);
+    } else {
+      newStart = newEnd.add(-1, type);
+    }
+  }
   return [newStart, newEnd];
 }
 
@@ -82,15 +101,6 @@ export class CandyDate implements IndexableObject {
       this.nativeDate = new Date();
     }
   }
-
-  // getLocale(): string {
-  //   return this.locale;
-  // }
-
-  // setLocale(locale: string): CandyDate {
-  //   this.locale = locale;
-  //   return this;
-  // }
 
   calendarStart(options?: { weekStartsOn: WeekDayIndex | undefined }): CandyDate {
     return new CandyDate(startOfWeek(startOfMonth(this.nativeDate), options));
@@ -145,7 +155,8 @@ export class CandyDate implements IndexableObject {
   }
 
   setHms(hour: number, minute: number, second: number): CandyDate {
-    return new CandyDate(this.nativeDate.setHours(hour, minute, second));
+    const newDate = new Date(this.nativeDate.setHours(hour, minute, second));
+    return new CandyDate(newDate);
   }
 
   setYear(year: number): CandyDate {
@@ -180,9 +191,25 @@ export class CandyDate implements IndexableObject {
     return this.setDate(this.getDate() + amount);
   }
 
-  isSame(date: CandyDateType, grain: CandyDateCompareGrain = 'day'): boolean {
+  add(amount: number, mode: NormalizedMode): CandyDate {
+    switch (mode) {
+      case 'decade':
+        return this.addYears(amount * 10);
+      case 'year':
+        return this.addYears(amount);
+      case 'month':
+        return this.addMonths(amount);
+      default:
+        return this.addMonths(amount);
+    }
+  }
+
+  isSame(date: CandyDateType, grain: CandyDateMode = 'day'): boolean {
     let fn;
     switch (grain) {
+      case 'decade':
+        fn = (pre: Date, next: Date) => Math.abs(pre.getFullYear() - next.getFullYear()) < 11;
+        break;
       case 'year':
         fn = isSameYear;
         break;
@@ -232,7 +259,7 @@ export class CandyDate implements IndexableObject {
     return this.isSame(date, 'second');
   }
 
-  compare(date: CandyDateType, grain: CandyDateCompareGrain = 'day', isBefore: boolean = true): boolean {
+  isBefore(date: CandyDateType, grain: CandyDateMode = 'day'): boolean {
     if (date === null) {
       return false;
     }
@@ -260,56 +287,19 @@ export class CandyDate implements IndexableObject {
         fn = differenceInCalendarDays;
         break;
     }
-    return isBefore ? fn(this.nativeDate, this.toNativeDate(date)) < 0 : fn(this.nativeDate, this.toNativeDate(date)) > 0;
+    return fn(this.nativeDate, this.toNativeDate(date)) < 0;
   }
 
   isBeforeYear(date: CandyDateType): boolean {
-    return this.compare(date, 'year');
+    return this.isBefore(date, 'year');
   }
 
   isBeforeMonth(date: CandyDateType): boolean {
-    return this.compare(date, 'month');
+    return this.isBefore(date, 'month');
   }
 
   isBeforeDay(date: CandyDateType): boolean {
-    return this.compare(date, 'day');
-  }
-
-  isBeforeHour(date: CandyDateType): boolean {
-    return this.compare(date, 'hour');
-  }
-
-  isBeforeMinute(date: CandyDateType): boolean {
-    return this.compare(date, 'minute');
-  }
-
-  isBeforeSecond(date: CandyDateType): boolean {
-    return this.compare(date, 'second');
-  }
-
-  // TODO: isBefore
-  isAfterYear(date: CandyDateType): boolean {
-    return this.compare(date, 'year', false);
-  }
-
-  isAfterMonth(date: CandyDateType): boolean {
-    return this.compare(date, 'month', false);
-  }
-
-  isAfterDay(date: CandyDateType): boolean {
-    return this.compare(date, 'day', false);
-  }
-
-  isAfterHour(date: CandyDateType): boolean {
-    return this.compare(date, 'hour', false);
-  }
-
-  isAfterMinute(date: CandyDateType): boolean {
-    return this.compare(date, 'minute', false);
-  }
-
-  isAfterSecond(date: CandyDateType): boolean {
-    return this.compare(date, 'second', false);
+    return this.isBefore(date, 'day');
   }
 
   // Equal to today accurate to "day"

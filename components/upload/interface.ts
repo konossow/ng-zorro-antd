@@ -3,9 +3,9 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
-import { Observable, Subscription } from 'rxjs';
-
+import { TemplateRef } from '@angular/core';
 import { IndexableObject, NzSafeAny } from 'ng-zorro-antd/core/types';
+import { Observable, Subscription } from 'rxjs';
 
 /** Status */
 export type UploadFileStatus = 'error' | 'success' | 'done' | 'uploading' | 'removed';
@@ -90,46 +90,4 @@ export interface NzUploadXHRArgs {
   onError?(err: NzSafeAny, file: NzUploadFile): void;
 }
 
-/**
- * @deprecated Use {@link NzUploadType} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type UploadType = NzUploadType;
-
-/**
- * @deprecated Use {@link NzUploadListType} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type UploadListType = NzUploadListType;
-
-/**
- * @deprecated Use {@link NzUploadFile} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type UploadFile = NzUploadFile;
-
-/**
- * @deprecated Use {@link NzUploadChangeParam} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type UploadChangeParam = NzUploadChangeParam;
-
-/**
- * @deprecated Use {@link NzShowUploadList} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type ShowUploadListInterface = NzShowUploadList;
-
-/**
- * @deprecated Use {@link NzUploadTransformFileType} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type UploadTransformFileType = NzUploadTransformFileType;
-
-/**
- * @deprecated Use {@link NzUploadXHRArgs} from {@link @ng-zorro-antd/upload} instead.
- * @breaking-change 10.0.0
- */
-export type UploadXHRArgs = NzUploadXHRArgs;
-
-export class NzShowUploadListInterface {}
+export type NzIconRenderTemplate = TemplateRef<{ $implicit: NzUploadFile }>;

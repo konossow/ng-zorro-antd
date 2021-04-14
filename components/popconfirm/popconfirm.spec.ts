@@ -124,6 +124,15 @@ describe('NzPopconfirm', () => {
     fixture.detectChanges();
     expect(overlayContainerElement.querySelector('.ant-popover-arrow')).toBeTruthy();
   }));
+
+  it('should nzPopconfirmBackdrop work', fakeAsync(() => {
+    component.nzPopconfirmBackdrop = true;
+    fixture.detectChanges();
+    const triggerElement = component.stringTemplate.nativeElement;
+    dispatchMouseEvent(triggerElement, 'click');
+    fixture.detectChanges();
+    expect(overlayContainerElement.children[0].classList).toContain('cdk-overlay-backdrop');
+  }));
 });
 
 @Component({
@@ -131,24 +140,30 @@ describe('NzPopconfirm', () => {
     <a
       nz-popconfirm
       #stringTemplate
-      nzTitle="title-string"
+      nzPopconfirmTitle="title-string"
       nzOkText="ok-text"
       nzOkType="default"
       nzCancelText="cancel-text"
       [nzCondition]="condition"
+      [nzPopconfirmShowArrow]="nzPopconfirmShowArrow"
+      [nzPopconfirmBackdrop]="nzPopconfirmBackdrop"
       (nzOnConfirm)="confirm()"
       (nzOnCancel)="cancel()"
-      [nzPopconfirmShowArrow]="nzPopconfirmShowArrow"
     >
       Delete
     </a>
-    <a nz-popconfirm #templateTemplate [nzIcon]="icon" [nzTitle]="titleTemplate" (nzOnConfirm)="confirm()" (nzOnCancel)="cancel()">
+    <a
+      nz-popconfirm
+      #templateTemplate
+      [nzIcon]="icon"
+      [nzPopconfirmTitle]="titleTemplate"
+      (nzOnConfirm)="confirm()"
+      (nzOnCancel)="cancel()"
+    >
       Delete
     </a>
 
-    <a nz-popconfirm #iconTemplate [nzIcon]="icon">
-      Delete
-    </a>
+    <a nz-popconfirm #iconTemplate [nzIcon]="icon">Delete</a>
 
     <ng-template #titleTemplate>title-template</ng-template>
   `
@@ -159,6 +174,7 @@ export class NzPopconfirmTestNewComponent {
   condition = false;
   nzPopconfirmShowArrow = true;
   icon: string | undefined = undefined;
+  nzPopconfirmBackdrop = false;
 
   @ViewChild('stringTemplate', { static: false }) stringTemplate!: ElementRef;
   @ViewChild('templateTemplate', { static: false }) templateTemplate!: ElementRef;

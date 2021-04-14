@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, DebugElement } from '@angular/core';
-import { async, ComponentFixture, fakeAsync, flush, TestBed } from '@angular/core/testing';
+import { Component, DebugElement, ViewChild } from '@angular/core';
+import { ComponentFixture, fakeAsync, flush, TestBed, waitForAsync } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router, Routes } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
@@ -9,6 +9,7 @@ import { NzDropDownModule } from 'ng-zorro-antd/dropdown';
 import { NzIconTestModule } from 'ng-zorro-antd/icon/testing';
 import { NzDemoBreadcrumbDropdownComponent } from './demo/dropdown';
 
+import { BidiModule, Dir } from '@angular/cdk/bidi';
 import { NzBreadCrumbItemComponent } from './breadcrumb-item.component';
 import { NzBreadCrumbComponent } from './breadcrumb.component';
 import { NzBreadCrumbModule } from './breadcrumb.module';
@@ -16,18 +17,19 @@ import { NzDemoBreadcrumbBasicComponent } from './demo/basic';
 import { NzDemoBreadcrumbSeparatorComponent } from './demo/separator';
 
 describe('breadcrumb', () => {
+  beforeEach(
+    waitForAsync(() => {
+      TestBed.configureTestingModule({
+        imports: [BidiModule, NzBreadCrumbModule],
+        declarations: [NzDemoBreadcrumbBasicComponent, NzTestBreadcrumbRtlComponent]
+      }).compileComponents();
+    })
+  );
+
   describe('basic', () => {
     let fixture: ComponentFixture<NzDemoBreadcrumbBasicComponent>;
     let items: DebugElement[];
     let breadcrumb: DebugElement;
-
-    beforeEach(async(() => {
-      TestBed.configureTestingModule({
-        imports: [NzBreadCrumbModule],
-        declarations: [NzDemoBreadcrumbBasicComponent],
-        providers: []
-      }).compileComponents();
-    }));
 
     beforeEach(() => {
       fixture = TestBed.createComponent(NzDemoBreadcrumbBasicComponent);
@@ -47,13 +49,15 @@ describe('breadcrumb', () => {
     let fixture: ComponentFixture<NzDemoBreadcrumbDropdownComponent>;
     let items: DebugElement[];
 
-    beforeEach(async(() => {
-      TestBed.configureTestingModule({
-        imports: [NzBreadCrumbModule, NzDropDownModule],
-        declarations: [NzDemoBreadcrumbDropdownComponent],
-        providers: []
-      }).compileComponents();
-    }));
+    beforeEach(
+      waitForAsync(() => {
+        TestBed.configureTestingModule({
+          imports: [NzBreadCrumbModule, NzDropDownModule],
+          declarations: [NzDemoBreadcrumbDropdownComponent],
+          providers: []
+        }).compileComponents();
+      })
+    );
 
     beforeEach(() => {
       fixture = TestBed.createComponent(NzDemoBreadcrumbDropdownComponent);
@@ -73,12 +77,14 @@ describe('breadcrumb', () => {
     let items: DebugElement[];
     let breadcrumbs: DebugElement[];
 
-    beforeEach(async(() => {
-      TestBed.configureTestingModule({
-        imports: [NzBreadCrumbModule, NzIconTestModule],
-        declarations: [NzDemoBreadcrumbSeparatorComponent]
-      }).compileComponents();
-    }));
+    beforeEach(
+      waitForAsync(() => {
+        TestBed.configureTestingModule({
+          imports: [NzBreadCrumbModule, NzIconTestModule],
+          declarations: [NzDemoBreadcrumbSeparatorComponent]
+        }).compileComponents();
+      })
+    );
 
     beforeEach(() => {
       fixture = TestBed.createComponent(NzDemoBreadcrumbSeparatorComponent);
@@ -208,7 +214,7 @@ describe('breadcrumb', () => {
       breadcrumb = fixture.debugElement.query(By.directive(NzBreadCrumbComponent));
 
       fixture.ngZone!.run(() => {
-        router = TestBed.get(Router);
+        router = TestBed.inject(Router);
         router.initialNavigation();
 
         flushFixture(fixture);
@@ -236,6 +242,19 @@ describe('breadcrumb', () => {
       }).toThrowError();
     }));
   });
+
+  describe('RTL', () => {
+    it('should className correct on dir change', () => {
+      const fixture = TestBed.createComponent(NzTestBreadcrumbRtlComponent);
+      const breadcrumb = fixture.debugElement.query(By.directive(NzBreadCrumbComponent));
+      fixture.detectChanges();
+      expect(breadcrumb.nativeElement.classList).toContain('ant-breadcrumb-rtl');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+      expect(breadcrumb.nativeElement.className).not.toContain('ant-breadcrumb-rtl');
+    });
+  });
 });
 
 // tslint:disable-next-line no-any
@@ -246,6 +265,8 @@ function flushFixture(fixture: ComponentFixture<any>): void {
 }
 
 @Component({
+  // tslint:disable-next-line:no-selector
+  selector: 'nz-test-breadcrumb',
   template: `
     <nz-breadcrumb [nzAutoGenerate]="true"></nz-breadcrumb>
     <router-outlet></router-outlet>
@@ -373,3 +394,15 @@ const customRouteLabelRoutes: Routes = [
     ]
   }
 ];
+
+@Component({
+  template: `
+    <div [dir]="direction">
+      <nz-demo-breadcrumb-basic></nz-demo-breadcrumb-basic>
+    </div>
+  `
+})
+export class NzTestBreadcrumbRtlComponent {
+  @ViewChild(Dir) dir!: Dir;
+  direction = 'rtl';
+}

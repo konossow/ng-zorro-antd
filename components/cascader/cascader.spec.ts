@@ -1,3 +1,4 @@
+import { BidiModule, Dir } from '@angular/cdk/bidi';
 // tslint:disable:no-any
 import {
   COMMA,
@@ -19,11 +20,12 @@ import {
 } from '@angular/cdk/keycodes';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { Component, DebugElement, TemplateRef, ViewChild } from '@angular/core';
-import { async, ComponentFixture, fakeAsync, flush, inject, TestBed, tick } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, flush, inject, TestBed, tick, waitForAsync } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { By } from '@angular/platform-browser';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { createFakeEvent, createMouseEvent, dispatchKeyboardEvent, dispatchMouseEvent } from 'ng-zorro-antd/core/testing';
+import { NzIconTestModule } from 'ng-zorro-antd/icon/testing';
 
 import { NzCascaderComponent } from './cascader.component';
 import { NzCascaderModule } from './cascader.module';
@@ -45,6 +47,25 @@ describe('cascader', () => {
     return overlayContainerElement.querySelectorAll(`.ant-cascader-menu`);
   }
 
+  beforeEach(
+    waitForAsync(() => {
+      TestBed.configureTestingModule({
+        imports: [BidiModule, FormsModule, ReactiveFormsModule, NoopAnimationsModule, NzCascaderModule, NzIconTestModule],
+        declarations: [NzDemoCascaderDefaultComponent, NzDemoCascaderLoadDataComponent, NzDemoCascaderRtlComponent]
+      }).compileComponents();
+
+      inject([OverlayContainer], (oc: OverlayContainer) => {
+        overlayContainer = oc;
+        overlayContainerElement = oc.getContainerElement();
+      })();
+    })
+  );
+
+  afterEach(inject([OverlayContainer], (currentOverlayContainer: OverlayContainer) => {
+    currentOverlayContainer.ngOnDestroy();
+    overlayContainer.ngOnDestroy();
+  }));
+
   describe('default', () => {
     let fixture: ComponentFixture<NzDemoCascaderDefaultComponent>;
     let cascader: DebugElement;
@@ -57,24 +78,6 @@ describe('cascader', () => {
     function getInputEl(): HTMLElement {
       return cascader.nativeElement.querySelector('input')!;
     }
-
-    beforeEach(async(() => {
-      TestBed.configureTestingModule({
-        imports: [FormsModule, ReactiveFormsModule, NoopAnimationsModule, NzCascaderModule],
-        declarations: [NzDemoCascaderDefaultComponent],
-        providers: []
-      }).compileComponents();
-
-      inject([OverlayContainer], (oc: OverlayContainer) => {
-        overlayContainer = oc;
-        overlayContainerElement = oc.getContainerElement();
-      })();
-    }));
-
-    afterEach(inject([OverlayContainer], (currentOverlayContainer: OverlayContainer) => {
-      currentOverlayContainer.ngOnDestroy();
-      overlayContainer.ngOnDestroy();
-    }));
 
     beforeEach(() => {
       fixture = TestBed.createComponent(NzDemoCascaderDefaultComponent);
@@ -617,7 +620,7 @@ describe('cascader', () => {
       expect(control.labelRenderText).toBe('Zhejiang');
     }));
 
-    it('should write value work on setting `nzOptions` asyn (match)', fakeAsync(() => {
+    it('should write value work on setting `nzOptions` async (match)', fakeAsync(() => {
       const control = testComponent.cascader;
       testComponent.nzOptions = null;
       testComponent.values = ['zhejiang', 'hangzhou', 'xihu'];
@@ -635,7 +638,7 @@ describe('cascader', () => {
       expect(control.labelRenderText).toBe('Zhejiang / Hangzhou / West Lake');
     }));
 
-    it('should write value work on setting `nzOptions` asyn (not match)', fakeAsync(() => {
+    it('should write value work on setting `nzOptions` async (not match)', fakeAsync(() => {
       const control = testComponent.cascader;
       testComponent.nzOptions = null;
       testComponent.values = ['zhejiang2', 'hangzhou2', 'xihu2'];
@@ -833,6 +836,14 @@ describe('cascader', () => {
       flush();
       fixture.detectChanges();
       expect(testComponent.cascader.menuVisible).toBe(false);
+    }));
+
+    it('should nzBackdrop works', fakeAsync(() => {
+      testComponent.nzBackdrop = true;
+      fixture.detectChanges();
+      testComponent.cascader.setMenuVisible(true);
+      fixture.detectChanges();
+      expect(overlayContainerElement.children[0].classList).toContain('cdk-overlay-backdrop');
     }));
 
     it('should navigate up when press UP_ARROW', fakeAsync(() => {
@@ -1365,6 +1376,24 @@ describe('cascader', () => {
       expect(itemEl1.innerText).toBe('Zhejiang');
     }));
 
+    it('should clear input value when searching cancel', fakeAsync(() => {
+      testComponent.values = ['zhengjiang', 'hangzhou', 'xihu'];
+      testComponent.nzShowSearch = true;
+      fixture.detectChanges();
+      cascader.nativeElement.click();
+      testComponent.cascader.inputValue = 'o';
+      fixture.detectChanges();
+      flush();
+      fixture.detectChanges();
+      expect(testComponent.cascader.menuVisible).toBe(true);
+      dispatchKeyboardEvent(cascader.nativeElement, 'keydown', ESCAPE);
+      fixture.detectChanges();
+      flush();
+      fixture.detectChanges();
+      expect(testComponent.cascader.inputValue).toBe('');
+      expect(testComponent.values).toEqual(['zhengjiang', 'hangzhou', 'xihu']);
+    }));
+
     it('should support nzLabelProperty', fakeAsync(() => {
       testComponent.nzShowSearch = true;
       testComponent.nzLabelProperty = 'l';
@@ -1541,25 +1570,24 @@ describe('cascader', () => {
       itemEl1 = getItemAtColumnAndRow(1, 1)!;
       expect(itemEl1.innerText).toBe('Option1 / Option11');
     });
+
+    it('should support changing icon', () => {
+      testComponent.nzSuffixIcon = 'home';
+      testComponent.nzExpandIcon = 'home';
+
+      fixture.detectChanges();
+      testComponent.cascader.setMenuVisible(true);
+      fixture.detectChanges();
+      const itemEl1 = getItemAtColumnAndRow(1, 1);
+      expect(itemEl1?.querySelector('.anticon-home')).toBeTruthy();
+      expect(cascader.nativeElement.querySelector('.ant-cascader-picker-arrow')!.classList).toContain('anticon-home');
+    });
   });
 
   describe('load data lazily', () => {
     let fixture: ComponentFixture<NzDemoCascaderLoadDataComponent>;
     let cascader: DebugElement;
     let testComponent: NzDemoCascaderLoadDataComponent;
-
-    beforeEach(async(() => {
-      TestBed.configureTestingModule({
-        imports: [FormsModule, ReactiveFormsModule, NoopAnimationsModule, NzCascaderModule],
-        declarations: [NzDemoCascaderLoadDataComponent],
-        providers: []
-      }).compileComponents();
-
-      inject([OverlayContainer], (oc: OverlayContainer) => {
-        overlayContainer = oc;
-        overlayContainerElement = oc.getContainerElement();
-      })();
-    }));
 
     afterEach(inject([OverlayContainer], (currentOverlayContainer: OverlayContainer) => {
       currentOverlayContainer.ngOnDestroy();
@@ -1690,6 +1718,53 @@ describe('cascader', () => {
       testComponent.cascader.setMenuVisible(true);
       fixture.detectChanges();
       expect(testComponent.values!.length).toBe(0);
+    }));
+  });
+
+  describe('RTL', () => {
+    let fixture: ComponentFixture<NzDemoCascaderRtlComponent>;
+    let cascader: DebugElement;
+    let testComponent: NzDemoCascaderRtlComponent;
+
+    beforeEach(() => {
+      fixture = TestBed.createComponent(NzDemoCascaderRtlComponent);
+      testComponent = fixture.debugElement.componentInstance;
+      cascader = fixture.debugElement.query(By.directive(NzCascaderComponent));
+    });
+
+    it('should className correct', () => {
+      fixture.detectChanges();
+      expect(cascader.nativeElement.className).toContain('ant-cascader-picker-rtl');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+      expect(cascader.nativeElement.className).not.toContain('ant-cascader-picker-rtl');
+    });
+
+    it('should menu class work', fakeAsync(() => {
+      fixture.detectChanges();
+      cascader.nativeElement.click();
+      fixture.detectChanges();
+      tick(200);
+      fixture.detectChanges();
+      expect(testComponent.cascader.menuVisible).toBe(true);
+      expect(overlayContainerElement.querySelector('.ant-cascader-menus')!.classList).toContain('ant-cascader-menu-rtl');
+    }));
+
+    it('should item arrow display correct direction', fakeAsync(() => {
+      fixture.detectChanges();
+      testComponent.nzOptions = options3;
+      testComponent.cascader.setMenuVisible(true);
+      fixture.detectChanges();
+      const itemEl1 = getItemAtColumnAndRow(1, 1)!;
+      itemEl1.click();
+      fixture.detectChanges();
+      tick(600);
+      fixture.detectChanges();
+      flush();
+      fixture.detectChanges();
+      const itemEl21 = getItemAtColumnAndRow(2, 1)!;
+      expect(itemEl21.querySelector('.anticon')?.classList).toContain('anticon-left');
     }));
   });
 });
@@ -1905,38 +1980,42 @@ const options4 = [
 const options5: any[] = []; // tslint:disable-line:no-any
 
 @Component({
+  // tslint:disable-next-line:no-selector
+  selector: 'nz-test-cascader-default',
   template: `
     <nz-cascader
-      [nzOptions]="nzOptions"
       [(ngModel)]="values"
       [nzAllowClear]="nzAllowClear"
       [nzAutoFocus]="nzAutoFocus"
-      [nzMenuStyle]="nzMenuStyle"
-      [nzMenuClassName]="nzMenuClassName"
+      [nzChangeOn]="nzChangeOn"
+      [nzChangeOnSelect]="nzChangeOnSelect"
       [nzColumnClassName]="nzColumnClassName"
-      [nzExpandTrigger]="nzExpandTrigger"
       [nzDisabled]="nzDisabled"
-      [nzLabelRender]="nzLabelRender"
+      [nzExpandIcon]="nzExpandIcon"
+      [nzExpandTrigger]="nzExpandTrigger"
       [nzLabelProperty]="nzLabelProperty"
-      [nzValueProperty]="nzValueProperty"
+      [nzLabelRender]="nzLabelRender"
+      [nzMenuClassName]="nzMenuClassName"
+      [nzMenuStyle]="nzMenuStyle"
+      [nzMouseEnterDelay]="nzMouseEnterDelay"
+      [nzMouseLeaveDelay]="nzMouseLeaveDelay"
+      [nzOptions]="nzOptions"
       [nzPlaceHolder]="nzPlaceHolder"
       [nzShowArrow]="nzShowArrow"
       [nzShowInput]="nzShowInput"
       [nzShowSearch]="nzShowSearch"
       [nzSize]="nzSize"
       [nzTriggerAction]="nzTriggerAction"
-      [nzMouseEnterDelay]="nzMouseEnterDelay"
-      [nzMouseLeaveDelay]="nzMouseLeaveDelay"
-      [nzChangeOn]="nzChangeOn"
-      [nzChangeOnSelect]="nzChangeOnSelect"
+      [nzSuffixIcon]="nzSuffixIcon"
+      [nzValueProperty]="nzValueProperty"
+      [nzBackdrop]="nzBackdrop"
       (ngModelChange)="onValueChanges($event)"
       (nzVisibleChange)="onVisibleChange($event)"
       (nzSelect)="onSelect($event)"
-    >
-    </nz-cascader>
+    ></nz-cascader>
 
     <ng-template #renderTpl let-labels="labels" let-selectedOptions="selectedOptions">
-      <ng-container *ngFor="let label of labels; let i = index; let isLast = last"> {{ label }}{{ isLast ? '' : ' | ' }} </ng-container>
+      <ng-container *ngFor="let label of labels; let i = index; let isLast = last">{{ label }}{{ isLast ? '' : ' | ' }}</ng-container>
     </ng-template>
   `,
   styles: [
@@ -1974,6 +2053,9 @@ export class NzDemoCascaderDefaultComponent {
   nzTriggerAction: string | string[] = 'click';
   nzMouseEnterDelay = 150; // ms
   nzMouseLeaveDelay = 150; // ms
+  nzSuffixIcon = 'down';
+  nzExpandIcon = 'right';
+  nzBackdrop = false;
 
   onVisibleChange = jasmine.createSpy('open change');
   onValueChanges = jasmine.createSpy('value change');
@@ -1997,8 +2079,7 @@ export class NzDemoCascaderDefaultComponent {
       [nzLoadData]="nzLoadData"
       (ngModelChange)="onValueChanges($event)"
       (nzVisibleChange)="onVisibleChange($event)"
-    >
-    </nz-cascader>
+    ></nz-cascader>
   `,
   styles: [
     `
@@ -2026,7 +2107,7 @@ export class NzDemoCascaderLoadDataComponent {
               label: 'Zhejiang'
             }
           ];
-          resolve();
+          resolve(null);
         } else if (index === 0) {
           node.children = [
             {
@@ -2034,7 +2115,7 @@ export class NzDemoCascaderLoadDataComponent {
               label: 'Hangzhou'
             }
           ];
-          resolve();
+          resolve(null);
         } else if (index === 1) {
           node.children = [
             {
@@ -2042,7 +2123,7 @@ export class NzDemoCascaderLoadDataComponent {
               label: 'West Lake'
             }
           ];
-          resolve();
+          resolve(null);
         } else {
           reject();
         }
@@ -2054,4 +2135,18 @@ export class NzDemoCascaderLoadDataComponent {
 
   onVisibleChange = jasmine.createSpy('open change');
   onValueChanges = jasmine.createSpy('value change');
+}
+
+@Component({
+  template: `
+    <div [dir]="direction">
+      <nz-cascader [nzOptions]="nzOptions"></nz-cascader>
+    </div>
+  `
+})
+export class NzDemoCascaderRtlComponent {
+  @ViewChild(NzCascaderComponent, { static: true }) cascader!: NzCascaderComponent;
+  public nzOptions: any[] | null = options1;
+  @ViewChild(Dir) dir!: Dir;
+  direction = 'rtl';
 }

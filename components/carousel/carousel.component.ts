@@ -3,6 +3,7 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import { LEFT_ARROW, RIGHT_ARROW } from '@angular/cdk/keycodes';
 import { Platform } from '@angular/cdk/platform';
 import {
@@ -18,6 +19,7 @@ import {
   Input,
   OnChanges,
   OnDestroy,
+  OnInit,
   Optional,
   Output,
   QueryList,
@@ -27,7 +29,7 @@ import {
   ViewChild,
   ViewEncapsulation
 } from '@angular/core';
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
 import { NzDragService, NzResizeService } from 'ng-zorro-antd/core/services';
 import { BooleanInput, NumberInput, NzSafeAny } from 'ng-zorro-antd/core/types';
 import { InputBoolean, InputNumber } from 'ng-zorro-antd/core/util';
@@ -47,7 +49,7 @@ import {
   PointerVector
 } from './typings';
 
-const NZ_CONFIG_COMPONENT_NAME = 'carousel';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'carousel';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -79,7 +81,7 @@ const NZ_CONFIG_COMPONENT_NAME = 'carousel';
         [class.slick-dots-left]="nzDotPosition === 'left'"
         [class.slick-dots-right]="nzDotPosition === 'right'"
       >
-        <li *ngFor="let content of carouselContents; let i = index" [class.slick-active]="content.isActive" (click)="goTo(i)">
+        <li *ngFor="let content of carouselContents; let i = index" [class.slick-active]="content.isActive" (click)="onLiClick(i)">
           <ng-template [ngTemplateOutlet]="nzDotRender || renderDotTemplate" [ngTemplateOutletContext]="{ $implicit: i }"></ng-template>
         </li>
       </ul>
@@ -90,10 +92,12 @@ const NZ_CONFIG_COMPONENT_NAME = 'carousel';
     </ng-template>
   `,
   host: {
-    '[class.ant-carousel-vertical]': 'vertical'
+    '[class.ant-carousel-vertical]': 'vertical',
+    '[class.ant-carousel-rtl]': `dir ==='rtl'`
   }
 })
-export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnDestroy, OnChanges {
+export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnDestroy, OnChanges, OnInit {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
   static ngAcceptInputType_nzEnableSwipe: BooleanInput;
   static ngAcceptInputType_nzDots: BooleanInput;
   static ngAcceptInputType_nzAutoPlay: BooleanInput;
@@ -106,16 +110,21 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
   @ViewChild('slickTrack', { static: false }) slickTrack?: ElementRef;
 
   @Input() nzDotRender?: TemplateRef<{ $implicit: number }>;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzEffect: NzCarouselEffects = 'scrollx';
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzEnableSwipe: boolean = true;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzDots: boolean = true;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzAutoPlay: boolean = false;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputNumber() nzAutoPlaySpeed: number = 3000;
+  @Input() @WithConfig() nzEffect: NzCarouselEffects = 'scrollx';
+  @Input() @WithConfig() @InputBoolean() nzEnableSwipe: boolean = true;
+  @Input() @WithConfig() @InputBoolean() nzDots: boolean = true;
+  @Input() @WithConfig() @InputBoolean() nzAutoPlay: boolean = false;
+  @Input() @WithConfig() @InputNumber() nzAutoPlaySpeed: number = 3000;
   @Input() @InputNumber() nzTransitionSpeed = 500;
+
+  /**
+   * this property is passed directly to an NzCarouselBaseStrategy
+   */
+  @Input() nzStrategyOptions: NzSafeAny = undefined;
 
   @Input()
   // @ts-ignore
-  @WithConfig(NZ_CONFIG_COMPONENT_NAME)
+  @WithConfig()
   set nzDotPosition(value: NzCarouselDotPosition) {
     this._dotPosition = value;
     if (value === 'left' || value === 'right') {
@@ -141,6 +150,7 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
   strategy?: NzCarouselBaseStrategy;
   vertical = false;
   transitionInProgress: number | null = null;
+  dir: Direction = 'ltr';
 
   private destroy$ = new Subject<void>();
   private gestureRect: ClientRect | null = null;
@@ -156,6 +166,7 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
     private readonly platform: Platform,
     private readonly resizeService: NzResizeService,
     private readonly nzDragService: NzDragService,
+    @Optional() private directionality: Directionality,
     @Optional() @Inject(NZ_CAROUSEL_CUSTOM_STRATEGIES) private customStrategies: NzCarouselStrategyRegistryItem[]
   ) {
     this.nzDotPosition = 'bottom';
@@ -163,38 +174,45 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
     this.renderer.addClass(elementRef.nativeElement, 'ant-carousel');
     this.el = elementRef.nativeElement;
   }
+  ngOnInit(): void {
+    this.dir = this.directionality.value;
+
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.markContentActive(this.activeIndex);
+      this.cdr.detectChanges();
+    });
+  }
 
   ngAfterContentInit(): void {
     this.markContentActive(0);
   }
 
   ngAfterViewInit(): void {
-    if (!this.platform.isBrowser) {
-      return;
-    }
     this.slickListEl = this.slickList!.nativeElement;
     this.slickTrackEl = this.slickTrack!.nativeElement;
 
     this.carouselContents.changes.pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.markContentActive(0);
-      this.syncStrategy();
+      this.layout();
     });
 
     this.resizeService
       .subscribe()
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.syncStrategy();
+        this.layout();
       });
 
     this.switchStrategy();
     this.markContentActive(0);
-    this.syncStrategy();
+    this.layout();
 
-    // If embedded in an entry component, it may do initial render at a inappropriate time.
+    // If embedded in an entry component, it may do initial render at an inappropriate time.
     // ngZone.onStable won't do this trick
+    // TODO: need to change this.
     Promise.resolve().then(() => {
-      this.syncStrategy();
+      this.layout();
     });
   }
 
@@ -204,13 +222,13 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
     if (nzEffect && !nzEffect.isFirstChange()) {
       this.switchStrategy();
       this.markContentActive(0);
-      this.syncStrategy();
+      this.layout();
     }
 
     if (nzDotPosition && !nzDotPosition.isFirstChange()) {
       this.switchStrategy();
       this.markContentActive(0);
-      this.syncStrategy();
+      this.layout();
     }
 
     if (!this.nzAutoPlay || !this.nzAutoPlaySpeed) {
@@ -240,6 +258,13 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
     }
   }
 
+  onLiClick = (index: number) => {
+    if (this.dir === 'rtl') {
+      this.goTo(this.carouselContents.length - 1 - index);
+    } else {
+      this.goTo(index);
+    }
+  };
   next(): void {
     this.goTo(this.activeIndex + 1);
   }
@@ -273,14 +298,14 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
     // Load custom strategies first.
     const customStrategy = this.customStrategies ? this.customStrategies.find(s => s.name === this.nzEffect) : null;
     if (customStrategy) {
-      this.strategy = new (customStrategy.strategy as NzSafeAny)(this, this.cdr, this.renderer);
+      this.strategy = new (customStrategy.strategy as NzSafeAny)(this, this.cdr, this.renderer, this.platform);
       return;
     }
 
     this.strategy =
       this.nzEffect === 'scrollx'
-        ? new NzCarouselTransformStrategy(this, this.cdr, this.renderer)
-        : new NzCarouselOpacityStrategy(this, this.cdr, this.renderer);
+        ? new NzCarouselTransformStrategy(this, this.cdr, this.renderer, this.platform)
+        : new NzCarouselOpacityStrategy(this, this.cdr, this.renderer, this.platform);
   }
 
   private scheduleNextTransition(): void {
@@ -304,7 +329,11 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
 
     if (this.carouselContents) {
       this.carouselContents.forEach((slide, i) => {
-        slide.isActive = index === i;
+        if (this.dir === 'rtl') {
+          slide.isActive = index === this.carouselContents.length - 1 - i;
+        } else {
+          slide.isActive = index === i;
+        }
       });
     }
 
@@ -347,7 +376,7 @@ export class NzCarouselComponent implements AfterContentInit, AfterViewInit, OnD
     }
   };
 
-  private syncStrategy(): void {
+  layout(): void {
     if (this.strategy) {
       this.strategy.withCarouselContents(this.carouselContents);
     }

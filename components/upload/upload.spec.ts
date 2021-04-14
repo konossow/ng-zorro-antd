@@ -222,8 +222,8 @@ describe('upload', () => {
         fixture.detectChanges();
         injector.get(NzI18nService).setLocale(en_US);
         fixture.detectChanges();
-        const removeFileText = (pageObject.getByCss('.anticon-delete').nativeElement as HTMLElement).title;
-        expect(removeFileText).toBe(en_US.Upload.removeFile);
+        const removeFileText = pageObject.getByCss('.ant-upload-list-item-card-actions-btn > .anticon-delete').nativeElement as HTMLElement;
+        expect(removeFileText.parentElement!.title).toBe(en_US.Upload.removeFile);
       });
     });
 
@@ -947,26 +947,24 @@ describe('upload', () => {
         spyOn(window as any, 'Image').and.returnValue(new MockImage());
 
         instance.listType = 'picture';
-        instance.items = [{ originFileObj: new File([''], '1.png', { type: 'image/' }), thgitumbUrl: undefined }];
+        instance.items = [{ originFileObj: new File([''], '1.png', { type: 'image/' }), thumbUrl: undefined }];
         fixture.detectChanges();
         tick();
         expect(instance.items[0].thumbUrl.length).toBeGreaterThan(1);
       }));
       it('should be generate thumb when width greater than height', fakeAsync(() => {
-        spyOn(window as any, 'Image').and.callFake(() => {
-          const img = new MockImage();
-          img.width = 2;
-          img.height = 1;
-          return img;
-        });
+        const img = new MockImage();
+        img.width = 2;
+        img.height = 1;
+        spyOn(window as any, 'Image').and.returnValue(img);
 
         instance.listType = 'picture';
-        instance.items = [{ originFileObj: new File([''], '1.png', { type: 'image/' }), thgitumbUrl: undefined }];
+        instance.items = [{ originFileObj: new File([''], '1.png', { type: 'image/' }), thumbUrl: undefined }];
         fixture.detectChanges();
         tick();
         expect(instance.items[0].thumbUrl.length).toBeGreaterThan(1);
       }));
-      it('should be ingore thumb when is invalid image data', () => {
+      it('should be ignore thumb when is invalid image data', () => {
         instance.listType = 'picture';
         instance.items = [{ originFileObj: new File([''], '1.pdf', { type: 'pdf' }), thumbUrl: undefined }];
         fixture.detectChanges();
@@ -975,7 +973,7 @@ describe('upload', () => {
       it('should be customize preview file', fakeAsync(() => {
         instance.previewFile = () => of('11');
         instance.listType = 'picture';
-        instance.items = [{ originFileObj: new File([''], '1.png', { type: 'image/' }), thgitumbUrl: undefined }];
+        instance.items = [{ originFileObj: new File([''], '1.png', { type: 'image/' }), thumbUrl: undefined }];
         fixture.detectChanges();
         tick();
         expect(instance.items[0].thumbUrl).toBe('11');
@@ -1360,7 +1358,10 @@ describe('upload', () => {
       (nzFileListChange)="nzFileListChange($event)"
       (nzChange)="nzChange($event)"
     >
-      <button nz-button><i nz-icon nzType="upload"></i><span>Click to Upload</span></button>
+      <button nz-button>
+        <i nz-icon nzType="upload"></i>
+        <span>Click to Upload</span>
+      </button>
     </nz-upload>
     <ng-template #customnzIconRender>
       <span class="customnzIconRender">asdf</span>
@@ -1485,7 +1486,9 @@ class TestUploadListComponent {
 }
 
 @Component({
-  template: ` <div nz-upload-btn #btn [options]="options" class="test">UPLAOD</div> `
+  template: `
+    <div nz-upload-btn #btn [options]="options" class="test">UPLAOD</div>
+  `
 })
 class TestUploadBtnComponent {
   @ViewChild('btn', { static: false }) comp!: NzUploadBtnComponent;

@@ -3,29 +3,33 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
-import { AnimationEvent } from '@angular/animations';
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
   Input,
   OnChanges,
+  OnDestroy,
   OnInit,
+  Optional,
   Output,
   Renderer2,
+  SimpleChanges,
   ViewEncapsulation
 } from '@angular/core';
-import { fadeMotion } from 'ng-zorro-antd/core/animation';
-import { warnDeprecation } from 'ng-zorro-antd/core/logger';
+import { isPresetColor, NzPresetColor } from 'ng-zorro-antd/core/color';
 import { BooleanInput } from 'ng-zorro-antd/core/types';
 import { InputBoolean } from 'ng-zorro-antd/core/util';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'nz-tag',
   exportAs: 'nzTag',
   preserveWhitespaces: false,
-  animations: [fadeMotion],
   template: `
     <ng-content></ng-content>
     <i nz-icon nzType="close" class="ant-tag-close-icon" *ngIf="nzMode === 'closeable'" tabindex="-1" (click)="closeTag($event)"></i>
@@ -33,58 +37,30 @@ import { InputBoolean } from 'ng-zorro-antd/core/util';
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {
-    '[@fadeMotion]': '',
-    '[@.disabled]': 'nzNoAnimation',
-    '[style.background-color]': 'presetColor ? null : nzColor',
-    '[class.ant-tag]': `true`,
-    '[class.ant-tag-has-color]': `nzColor && !presetColor`,
+    '[style.background-color]': `isPresetColor ? '' : nzColor`,
+    '[class]': `isPresetColor ? ('ant-tag-' + nzColor) : ''`,
+    '[class.ant-tag-has-color]': `nzColor && !isPresetColor`,
     '[class.ant-tag-checkable]': `nzMode === 'checkable'`,
     '[class.ant-tag-checkable-checked]': `nzChecked`,
-    '(click)': 'updateCheckedStatus()',
-    '(@fadeMotion.done)': 'afterAnimation($event)'
+    '[class.ant-tag-rtl]': `dir === 'rtl'`,
+    '(click)': 'updateCheckedStatus()'
   }
 })
-export class NzTagComponent implements OnInit, OnChanges {
+export class NzTagComponent implements OnChanges, OnDestroy, OnInit {
   static ngAcceptInputType_nzChecked: BooleanInput;
-  static ngAcceptInputType_nzNoAnimation: BooleanInput;
-
-  presetColor = false;
-  cacheClassName: string | null = null;
+  isPresetColor = false;
   @Input() nzMode: 'default' | 'closeable' | 'checkable' = 'default';
-  @Input() nzColor?: string;
+  @Input() nzColor?: string | NzPresetColor;
   @Input() @InputBoolean() nzChecked = false;
-  @Input() @InputBoolean() nzNoAnimation = false;
-  @Output() readonly nzAfterClose = new EventEmitter<void>();
   @Output() readonly nzOnClose = new EventEmitter<MouseEvent>();
   @Output() readonly nzCheckedChange = new EventEmitter<boolean>();
-
-  private isPresetColor(color?: string): boolean {
-    if (!color) {
-      return false;
-    }
-
-    return (
-      /^(pink|red|yellow|orange|cyan|green|blue|purple|geekblue|magenta|volcano|gold|lime)(-inverse)?$/.test(color) ||
-      /^(success|processing|error|default|warning)$/.test(color)
-    );
-  }
-
-  private updateClassMap(): void {
-    this.presetColor = this.isPresetColor(this.nzColor);
-    if (this.cacheClassName) {
-      this.renderer.removeClass(this.elementRef.nativeElement, this.cacheClassName);
-    }
-    if (this.presetColor) {
-      this.cacheClassName = `ant-tag-${this.nzColor}`;
-      this.renderer.addClass(this.elementRef.nativeElement, this.cacheClassName);
-    }
-  }
+  dir: Direction = 'ltr';
+  private destroy$ = new Subject<void>();
 
   updateCheckedStatus(): void {
     if (this.nzMode === 'checkable') {
       this.nzChecked = !this.nzChecked;
       this.nzCheckedChange.emit(this.nzChecked);
-      this.updateClassMap();
     }
   }
 
@@ -95,22 +71,38 @@ export class NzTagComponent implements OnInit, OnChanges {
     }
   }
 
-  afterAnimation(e: AnimationEvent): void {
-    if (e.toState === 'void') {
-      this.nzAfterClose.emit();
-      if (this.nzAfterClose.observers.length) {
-        warnDeprecation(`'(nzAfterClose)' Output is going to be removed in 9.0.0. Please use '(nzOnClose)' instead.`);
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private renderer: Renderer2,
+    private elementRef: ElementRef,
+    @Optional() private directionality: Directionality
+  ) {
+    // TODO: move to host after View Engine deprecation
+    this.elementRef.nativeElement.classList.add('ant-tag');
+  }
+
+  ngOnInit(): void {
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.cdr.detectChanges();
+    });
+
+    this.dir = this.directionality.value;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const { nzColor } = changes;
+    if (nzColor) {
+      if (!this.nzColor) {
+        this.isPresetColor = false;
+      } else {
+        this.isPresetColor = isPresetColor(this.nzColor) || /^(success|processing|error|default|warning)$/.test(this.nzColor);
       }
     }
   }
 
-  constructor(private renderer: Renderer2, private elementRef: ElementRef) {}
-
-  ngOnInit(): void {
-    this.updateClassMap();
-  }
-
-  ngOnChanges(): void {
-    this.updateClassMap();
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

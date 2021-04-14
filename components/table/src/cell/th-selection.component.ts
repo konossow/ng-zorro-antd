@@ -6,6 +6,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   EventEmitter,
   Input,
   OnChanges,
@@ -33,10 +34,7 @@ import { InputBoolean } from 'ng-zorro-antd/core/util';
       (checkedChange)="onCheckedChange($event)"
     ></nz-table-selection>
     <ng-content></ng-content>
-  `,
-  host: {
-    '[class.ant-table-selection-column]': 'true'
-  }
+  `
 })
 export class NzThSelectionComponent implements OnChanges {
   static ngAcceptInputType_nzShowCheckbox: BooleanInput;
@@ -49,10 +47,14 @@ export class NzThSelectionComponent implements OnChanges {
   @Input() @InputBoolean() nzShowCheckbox = false;
   @Input() @InputBoolean() nzShowRowSelection = false;
   @Output() readonly nzCheckedChange = new EventEmitter<boolean>();
-  @Output() readonly nzSortChangeWithKey = new EventEmitter<{ key: string; value: string | null }>();
 
   private isNzShowExpandChanged = false;
   private isNzShowCheckboxChanged = false;
+
+  constructor(private elementRef: ElementRef) {
+    // TODO: move to host after View Engine deprecation
+    this.elementRef.nativeElement.classList.add('ant-table-selection-column');
+  }
 
   onCheckedChange(checked: boolean): void {
     this.nzChecked = checked;

@@ -28,10 +28,12 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 
 | Property | Description | Type | Default | Global Config |
 | -------- | ----------- | ---- | ------- | ------- |
+| `[nzId]` | input id attribute inside the component| `string` | - |
 | `[ngModel]` | Current selected nz-option value, double binding. | `any \| any[]` | - |
 | `[compareWith]` | Same as [SelectControlValueAccessor](https://angular.io/api/forms/SelectControlValueAccessor#caveat-option-selection) | `(o1: any, o2: any) => boolean` | `(o1: any, o2: any) => o1===o2` |
 | `[nzAutoClearSearchValue]` | Whether the current search will be cleared on selecting an item. Only applies when `mode` is set to `multiple` or `tags`. | `boolean` | `true` |
 | `[nzAllowClear]` | Show clear button. | `boolean` | `false` |
+| `[nzBackdrop]` | whether or not the overlay should attach a backdrop | `boolean` | `false` |
 | `[nzBorderless]` | whether has borderless style | `boolean` | `false` | ✅ |
 | `[nzOpen]` | dropdown expand state, double binding | `boolean` | `false` |
 | `[nzAutoFocus]` | Get focus by default | `boolean` | `false` |
@@ -46,7 +48,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 | `[nzMode]` | Set mode of Select | `'multiple' \| 'tags' \| 'default'` | `'default'` |
 | `[nzNotFoundContent]` | Specify content to show when no result matches.. | `string  \|  TemplateRef<void>` | `'Not Found'` |
 | `[nzPlaceHolder]` | Placeholder of select | `string` | - |
-| `[nzShowArrow]` | Whether to show the drop-down arrow | `boolean` | `true` |
+| `[nzShowArrow]` | Whether to show the drop-down arrow | `boolean` | `true`(for single select), `false`(for multiple select) |
 | `[nzShowSearch]` | Whether show search input in single mode. | `boolean` | `false` |
 | `[nzSize]` | Size of Select input | `'large' \| 'small' \| 'default'` | `'default'` |
 | `[nzSuffixIcon]` | The custom suffix icon | `TemplateRef<any> \| string` | - |  ✅ |
@@ -56,7 +58,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 | `[nzTokenSeparators]` | Separator used to tokenize on tag/multiple mode | `string[]` | `[]` |
 | `[nzLoading]` | indicate loading state | `boolean` | false |
 | `[nzMaxTagCount]` | Max tag count to show| `number` | - |
-| `[nzOptions]` | use nzOptions or `nz-option` to pass options to the select  | `Array<{ label: string \| TemplateRef<any>; value: any; disabled?: boolean; hide?: boolean; groupLabel?: string \| TemplateRef<any>;}>` | - |
+| `[nzOptions]` | use nzOptions or `nz-option` to pass options to the select  | `Array<{ label: string  \| number \| TemplateRef<any>; value: any; disabled?: boolean; hide?: boolean; groupLabel?: string \| TemplateRef<any>;}>` | - |
 | `[nzMaxTagPlaceholder]` | Placeholder for not showing tags | `TemplateRef<{ $implicit: any[] }>` | - |
 | `[nzOptionHeightPx]` | Each option height inside the dropdown | `number` | `32` |
 | `[nzOptionOverflowSize]` | Max option size inside the dropdown, overflow when exceed the size | `number` | `8` |
@@ -72,7 +74,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 | Property | Description | Type | Default |
 | -------- | ----------- | ---- | ------- |
 | `[nzDisabled]` | Disable this option | `boolean` | `false` |
-| `[nzLabel]` | The text show in nz-select and dropdown menu | `string` | - |
+| `[nzLabel]` | The text show in nz-select and dropdown menu | `string  \| number` | - |
 | `[nzValue]` | The value passed to ngModel of nz-select | `any ` | - |
 | `[nzHide]` | Whether hide the option in the option list | `boolean` | `false` |
 | `[nzCustomContent]` | Whether custom nz-option content in drodown menu, the ng-content in nz-option will relace nzLabel when it was set to true | `boolean` | `false` |
@@ -81,7 +83,7 @@ import { NzSelectModule } from 'ng-zorro-antd/select';
 
 | Property | Description | Type | Default |
 | -------- | ----------- | ---- | ------- |
-| `[nzLabel]` | Group label | `string \| TemplateRef<void>` | - |
+| `[nzLabel]` | Group label | `string  \| number \| TemplateRef<void>` | - |
 
 ## Methods
 

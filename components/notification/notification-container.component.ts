@@ -3,9 +3,9 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
+import { Direction } from '@angular/cdk/bidi';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ViewEncapsulation } from '@angular/core';
 import { NotificationConfig, NzConfigService } from 'ng-zorro-antd/core/config';
-import { warnDeprecation } from 'ng-zorro-antd/core/logger';
 import { toCssPixel } from 'ng-zorro-antd/core/util';
 
 import { NzMNContainerComponent } from 'ng-zorro-antd/message';
@@ -14,7 +14,7 @@ import { takeUntil } from 'rxjs/operators';
 
 import { NzNotificationData, NzNotificationDataOptions } from './typings';
 
-const NZ_CONFIG_COMPONENT_NAME = 'notification';
+const NZ_CONFIG_MODULE_NAME = 'notification';
 
 const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
   nzTop: '24px',
@@ -23,7 +23,8 @@ const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
   nzDuration: 4500,
   nzMaxStack: 7,
   nzPauseOnHover: true,
-  nzAnimate: true
+  nzAnimate: true,
+  nzDirection: 'ltr'
 };
 
 @Component({
@@ -33,7 +34,12 @@ const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
   exportAs: 'nzNotificationContainer',
   preserveWhitespaces: false,
   template: `
-    <div class="ant-notification ant-notification-topLeft" [style.top]="top" [style.left]="'0px'">
+    <div
+      class="ant-notification ant-notification-topLeft"
+      [class.ant-notification-rtl]="dir === 'rtl'"
+      [style.top]="top"
+      [style.left]="'0px'"
+    >
       <nz-notification
         *ngFor="let instance of topLeftInstances"
         [instance]="instance"
@@ -41,7 +47,12 @@ const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
         (destroyed)="remove($event.id, $event.userAction)"
       ></nz-notification>
     </div>
-    <div class="ant-notification ant-notification-topRight" [style.top]="top" [style.right]="'0px'">
+    <div
+      class="ant-notification ant-notification-topRight"
+      [class.ant-notification-rtl]="dir === 'rtl'"
+      [style.top]="top"
+      [style.right]="'0px'"
+    >
       <nz-notification
         *ngFor="let instance of topRightInstances"
         [instance]="instance"
@@ -49,7 +60,12 @@ const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
         (destroyed)="remove($event.id, $event.userAction)"
       ></nz-notification>
     </div>
-    <div class="ant-notification ant-notification-bottomLeft" [style.bottom]="bottom" [style.left]="'0px'">
+    <div
+      class="ant-notification ant-notification-bottomLeft"
+      [class.ant-notification-rtl]="dir === 'rtl'"
+      [style.bottom]="bottom"
+      [style.left]="'0px'"
+    >
       <nz-notification
         *ngFor="let instance of bottomLeftInstances"
         [instance]="instance"
@@ -57,7 +73,12 @@ const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
         (destroyed)="remove($event.id, $event.userAction)"
       ></nz-notification>
     </div>
-    <div class="ant-notification ant-notification-bottomRight" [style.bottom]="bottom" [style.right]="'0px'">
+    <div
+      class="ant-notification ant-notification-bottomRight"
+      [class.ant-notification-rtl]="dir === 'rtl'"
+      [style.bottom]="bottom"
+      [style.right]="'0px'"
+    >
       <nz-notification
         *ngFor="let instance of bottomRightInstances"
         [instance]="instance"
@@ -68,6 +89,7 @@ const NZ_NOTIFICATION_DEFAULT_CONFIG: Required<NotificationConfig> = {
   `
 })
 export class NzNotificationContainerComponent extends NzMNContainerComponent {
+  dir: Direction = 'ltr';
   bottom?: string | null;
   top?: string | null;
   config!: Required<NotificationConfig>; // initialized by parent class constructor
@@ -79,6 +101,8 @@ export class NzNotificationContainerComponent extends NzMNContainerComponent {
 
   constructor(cdr: ChangeDetectorRef, nzConfigService: NzConfigService) {
     super(cdr, nzConfigService);
+    const config = this.nzConfigService.getConfigForComponent(NZ_CONFIG_MODULE_NAME);
+    this.dir = config?.nzDirection || 'ltr';
   }
 
   create(notification: NzNotificationData): Required<NzNotificationData> {
@@ -110,16 +134,23 @@ export class NzNotificationContainerComponent extends NzMNContainerComponent {
 
   protected subscribeConfigChange(): void {
     this.nzConfigService
-      .getConfigChangeEventForComponent(NZ_CONFIG_COMPONENT_NAME)
+      .getConfigChangeEventForComponent(NZ_CONFIG_MODULE_NAME)
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => this.updateConfig());
+      .subscribe(() => {
+        this.updateConfig();
+        const config = this.nzConfigService.getConfigForComponent(NZ_CONFIG_MODULE_NAME);
+        if (config) {
+          const { nzDirection } = config;
+          this.dir = nzDirection || this.dir;
+        }
+      });
   }
 
   protected updateConfig(): void {
     this.config = {
       ...NZ_NOTIFICATION_DEFAULT_CONFIG,
       ...this.config,
-      ...this.nzConfigService.getConfigForComponent(NZ_CONFIG_COMPONENT_NAME)
+      ...this.nzConfigService.getConfigForComponent(NZ_CONFIG_MODULE_NAME)
     };
 
     this.top = toCssPixel(this.config.nzTop!);
@@ -146,13 +177,7 @@ export class NzNotificationContainerComponent extends NzMNContainerComponent {
   }
 
   protected mergeOptions(options?: NzNotificationDataOptions): NzNotificationDataOptions {
-    const { nzPosition } = options ?? {};
-
-    if (nzPosition) {
-      warnDeprecation('`nzPosition` of NzNotificationDataOptions is deprecated and would be removed in 10.0.0. Use `nzPlacement` instead.');
-    }
-
     const { nzDuration, nzAnimate, nzPauseOnHover, nzPlacement } = this.config;
-    return { nzDuration, nzAnimate, nzPauseOnHover, nzPlacement: nzPlacement || nzPosition, ...options };
+    return { nzDuration, nzAnimate, nzPauseOnHover, nzPlacement: nzPlacement, ...options };
   }
 }

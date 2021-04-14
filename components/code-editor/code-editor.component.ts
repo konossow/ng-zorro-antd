@@ -3,6 +3,7 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
+import { Platform } from '@angular/cdk/platform';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -48,9 +49,6 @@ declare const monaco: NzSafeAny;
       <ng-template [ngTemplateOutlet]="nzToolkit"></ng-template>
     </div>
   `,
-  host: {
-    '[class.ant-code-editor]': 'true'
-  },
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -85,14 +83,23 @@ export class NzCodeEditorComponent implements OnDestroy, AfterViewInit {
   private value = '';
   private modelSet = false;
 
-  constructor(private nzCodeEditorService: NzCodeEditorService, private ngZone: NgZone, elementRef: ElementRef) {
+  constructor(
+    private nzCodeEditorService: NzCodeEditorService,
+    private ngZone: NgZone,
+    elementRef: ElementRef,
+    private platform: Platform
+  ) {
     this.el = elementRef.nativeElement;
+    this.el.classList.add('ant-code-editor');
   }
 
   /**
    * Initialize a monaco editor instance.
    */
   ngAfterViewInit(): void {
+    if (!this.platform.isBrowser) {
+      return;
+    }
     this.nzCodeEditorService.requestToInit().subscribe(option => this.setup(option));
   }
 
@@ -203,7 +210,8 @@ export class NzCodeEditorComponent implements OnDestroy, AfterViewInit {
 
     if (this.nzEditorMode === 'normal') {
       if (this.modelSet) {
-        (this.editorInstance.getModel() as ITextModel).setValue(this.value);
+        const model = this.editorInstance.getModel() as ITextModel;
+        this.preservePositionAndSelections(() => model.setValue(this.value));
       } else {
         (this.editorInstance as IStandaloneCodeEditor).setModel(
           monaco.editor.createModel(this.value, (this.editorOptionCached as EditorOptions).language)
@@ -213,8 +221,10 @@ export class NzCodeEditorComponent implements OnDestroy, AfterViewInit {
     } else {
       if (this.modelSet) {
         const model = (this.editorInstance as IStandaloneDiffEditor).getModel()!;
-        model.modified.setValue(this.value);
-        model.original.setValue(this.nzOriginalText);
+        this.preservePositionAndSelections(() => {
+          model.modified.setValue(this.value);
+          model.original.setValue(this.nzOriginalText);
+        });
       } else {
         const language = (this.editorOptionCached as EditorOptions).language;
         (this.editorInstance as IStandaloneDiffEditor).setModel({
@@ -226,17 +236,49 @@ export class NzCodeEditorComponent implements OnDestroy, AfterViewInit {
     }
   }
 
+  /**
+   * {@link editor.ICodeEditor}#setValue resets the cursor position to the start of the document.
+   * This helper memorizes the cursor position and selections and restores them after the given
+   * function has been called.
+   */
+  private preservePositionAndSelections(fn: () => unknown): void {
+    if (!this.editorInstance) {
+      fn();
+      return;
+    }
+
+    const position = this.editorInstance.getPosition();
+    const selections = this.editorInstance.getSelections();
+
+    fn();
+
+    if (position) {
+      this.editorInstance.setPosition(position);
+    }
+    if (selections) {
+      this.editorInstance.setSelections(selections);
+    }
+  }
+
   private setValueEmitter(): void {
     const model = (this.nzEditorMode === 'normal'
       ? (this.editorInstance as IStandaloneCodeEditor).getModel()
       : (this.editorInstance as IStandaloneDiffEditor).getModel()!.modified) as ITextModel;
 
     model.onDidChangeContent(() => {
-      this.emitValue(model.getValue());
+      this.ngZone.run(() => {
+        this.emitValue(model.getValue());
+      });
     });
   }
 
   private emitValue(value: string): void {
+    if (this.value === value) {
+      // If the value didn't change there's no reason to send an update.
+      // Specifically this may happen during an update from the model (writeValue) where sending an update to the model would actually be incorrect.
+      return;
+    }
+
     this.value = value;
     this.onChange(value);
   }

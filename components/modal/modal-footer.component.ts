@@ -19,7 +19,7 @@ import { ModalButtonOptions, ModalOptions } from './modal-types';
   template: `
     <ng-container *ngIf="config.nzFooter; else defaultFooterButtons">
       <ng-container *nzStringTemplateOutlet="config.nzFooter; context: { $implicit: config.nzComponentParams, modalRef: modalRef }">
-        <div *ngIf="!buttonsFooter" [innerHTML]="config.nzTitle"></div>
+        <div *ngIf="!buttonsFooter" [innerHTML]="config.nzFooter"></div>
         <ng-container *ngIf="buttonsFooter">
           <button
             *ngFor="let button of buttons"
@@ -29,6 +29,7 @@ import { ModalButtonOptions, ModalOptions } from './modal-types';
             [nzLoading]="getButtonCallableProp(button, 'loading')"
             [disabled]="getButtonCallableProp(button, 'disabled')"
             [nzType]="button.type!"
+            [nzDanger]="button.danger"
             [nzShape]="button.shape!"
             [nzSize]="button.size!"
             [nzGhost]="button.ghost!"
@@ -54,6 +55,7 @@ import { ModalButtonOptions, ModalOptions } from './modal-types';
         [attr.cdkFocusInitial]="config.nzAutofocus === 'ok' || null"
         nz-button
         [nzType]="config.nzOkType!"
+        [nzDanger]="config.nzOkDanger"
         (click)="onOk()"
         [nzLoading]="!!config.nzOkLoading"
         [disabled]="config.nzOkDisabled"
@@ -97,8 +99,6 @@ export class NzModalFooterComponent implements OnDestroy {
   /**
    * Returns the value of the specified key.
    * If it is a function, run and return the return value of the function.
-   * @deprecated Not support use function type.
-   * @breaking-change 10.0.0
    */
   getButtonCallableProp(options: ModalButtonOptions, prop: keyof ModalButtonOptions): boolean {
     const value = options[prop];
@@ -108,8 +108,6 @@ export class NzModalFooterComponent implements OnDestroy {
 
   /**
    * Run function based on the type and set its `loading` prop if needed.
-   * @deprecated Should be set options' value by the user, not library.
-   * @breaking-change 10.0.0
    */
   onButtonClick(options: ModalButtonOptions): void {
     const loading = this.getButtonCallableProp(options, 'loading');

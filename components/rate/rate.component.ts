@@ -3,6 +3,7 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import { LEFT_ARROW, RIGHT_ARROW } from '@angular/cdk/keycodes';
 import {
   ChangeDetectionStrategy,
@@ -15,6 +16,7 @@ import {
   OnChanges,
   OnDestroy,
   OnInit,
+  Optional,
   Output,
   Renderer2,
   SimpleChanges,
@@ -23,14 +25,14 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
-import { BooleanInput, NgClassType } from 'ng-zorro-antd/core/types';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { BooleanInput, NgClassType, NumberInput } from 'ng-zorro-antd/core/types';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 import { InputBoolean, InputNumber } from 'ng-zorro-antd/core/util';
 
-const NZ_CONFIG_COMPONENT_NAME = 'rate';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'rate';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,6 +45,7 @@ const NZ_CONFIG_COMPONENT_NAME = 'rate';
       #ulElement
       class="ant-rate"
       [class.ant-rate-disabled]="nzDisabled"
+      [class.ant-rate-rtl]="dir === 'rtl'"
       [ngClass]="classMap"
       (blur)="onBlur($event)"
       (focus)="onFocus($event)"
@@ -76,19 +79,21 @@ const NZ_CONFIG_COMPONENT_NAME = 'rate';
   ]
 })
 export class NzRateComponent implements OnInit, OnDestroy, ControlValueAccessor, OnChanges {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
+
   static ngAcceptInputType_nzAllowClear: BooleanInput;
   static ngAcceptInputType_nzAllowHalf: BooleanInput;
   static ngAcceptInputType_nzDisabled: BooleanInput;
   static ngAcceptInputType_nzAutoFocus: BooleanInput;
-  static ngAcceptInputType_nzCount: BooleanInput;
+  static ngAcceptInputType_nzCount: NumberInput;
 
   @ViewChild('ulElement', { static: false }) private ulElement?: ElementRef;
 
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzAllowClear: boolean = true;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzAllowHalf: boolean = false;
+  @Input() @WithConfig() @InputBoolean() nzAllowClear: boolean = true;
+  @Input() @WithConfig() @InputBoolean() nzAllowHalf: boolean = false;
   @Input() @InputBoolean() nzDisabled: boolean = false;
   @Input() @InputBoolean() nzAutoFocus: boolean = false;
-  @Input() nzCharacter?: TemplateRef<void>;
+  @Input() nzCharacter!: TemplateRef<void>;
   @Input() @InputNumber() nzCount: number = 5;
   @Input() nzTooltips: string[] = [];
   @Output() readonly nzOnBlur = new EventEmitter<FocusEvent>();
@@ -99,6 +104,7 @@ export class NzRateComponent implements OnInit, OnDestroy, ControlValueAccessor,
   classMap: NgClassType = {};
   starArray: number[] = [];
   starStyleArray: NgClassType[] = [];
+  dir: Direction = 'ltr';
 
   private readonly destroy$ = new Subject<void>();
   private hasHalf = false;
@@ -120,7 +126,12 @@ export class NzRateComponent implements OnInit, OnDestroy, ControlValueAccessor,
     this.hoverValue = Math.ceil(input);
   }
 
-  constructor(public nzConfigService: NzConfigService, private renderer: Renderer2, private cdr: ChangeDetectorRef) {}
+  constructor(
+    public nzConfigService: NzConfigService,
+    private renderer: Renderer2,
+    private cdr: ChangeDetectorRef,
+    @Optional() private directionality: Directionality
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     const { nzAutoFocus, nzCount, nzValue } = changes;
@@ -145,9 +156,16 @@ export class NzRateComponent implements OnInit, OnDestroy, ControlValueAccessor,
 
   ngOnInit(): void {
     this.nzConfigService
-      .getConfigChangeEventForComponent(NZ_CONFIG_COMPONENT_NAME)
+      .getConfigChangeEventForComponent(NZ_CONFIG_MODULE_NAME)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.cdr.markForCheck());
+
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.cdr.detectChanges();
+    });
+
+    this.dir = this.directionality.value;
   }
 
   ngOnDestroy(): void {

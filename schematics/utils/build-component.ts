@@ -7,6 +7,7 @@
  */
 
 import { strings, template as interpolateTemplate } from '@angular-devkit/core';
+import { ProjectDefinition } from '@angular-devkit/core/src/workspace';
 import {
   apply,
   applyTemplates,
@@ -16,32 +17,72 @@ import {
   mergeWith,
   move,
   noop,
-  url,
   Rule,
   SchematicsException,
-  Tree
+  Tree,
+  url
 } from '@angular-devkit/schematics';
 import { FileSystemSchematicContext } from '@angular-devkit/schematics/tools';
 import { getDefaultComponentOptions, getProjectFromWorkspace } from '@angular/cdk/schematics';
 import { Schema as ComponentOptions, Style } from '@schematics/angular/component/schema';
-import * as ts from 'typescript';
+import * as ts from '@schematics/angular/third_party/github.com/Microsoft/TypeScript/lib/typescript';
 import {
   addDeclarationToModule,
   addEntryComponentToModule,
   addExportToModule,
-  getFirstNgModuleName
+  getDecoratorMetadata
 } from '@schematics/angular/utility/ast-utils';
 import { InsertChange } from '@schematics/angular/utility/change';
-import { getWorkspace } from '@schematics/angular/utility/config';
 import { buildRelativePath, findModuleFromOptions } from '@schematics/angular/utility/find-module';
 import { parseName } from '@schematics/angular/utility/parse-name';
-import { buildDefaultPath } from '@schematics/angular/utility/project';
 import { validateHtmlSelector, validateName } from '@schematics/angular/utility/validation';
+import { getWorkspace } from '@schematics/angular/utility/workspace';
+import { ProjectType } from '@schematics/angular/utility/workspace-models';
 import { readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 
+function findClassDeclarationParent(node: ts.Node): ts.ClassDeclaration|undefined {
+  if (ts.isClassDeclaration(node)) {
+    return node;
+  }
+
+  return node.parent && findClassDeclarationParent(node.parent);
+}
+
+function getFirstNgModuleName(source: ts.SourceFile): string|undefined {
+  // First, find the @NgModule decorators.
+  const ngModulesMetadata = getDecoratorMetadata(source, 'NgModule', '@angular/core');
+  if (ngModulesMetadata.length === 0) {
+    return undefined;
+  }
+
+  // Then walk parent pointers up the AST, looking for the ClassDeclaration parent of the NgModule
+  // metadata.
+  const moduleClass = findClassDeclarationParent(ngModulesMetadata[0]);
+  if (!moduleClass || !moduleClass.name) {
+    return undefined;
+  }
+
+  // Get the class name of the module ClassDeclaration.
+  return moduleClass.name.text;
+}
+
 export interface ZorroComponentOptions extends ComponentOptions {
   classnameWithModule: boolean;
+}
+
+/**
+ * Build a default project path for generating.
+ * @param project The project to build the path for.
+ */
+function buildDefaultPath(project: ProjectDefinition): string {
+  const root = project.sourceRoot
+    ? `/${project.sourceRoot}/`
+    : `/${project.root}/src/`;
+
+  const projectDirName = project.extensions.projectType === ProjectType.Application ? 'app' : 'lib';
+
+  return `${root}${projectDirName}`;
 }
 
 /**
@@ -79,9 +120,11 @@ function addDeclarationToNgModule(options: ZorroComponentOptions): Rule {
 
     const modulePath = options.module;
     let source = readIntoSourceFile(host, modulePath);
+
     const componentPath = `/${options.path}/${options.flat ? '' : strings.dasherize(options.name) + '/'}${strings.dasherize(options.name)}.component`;
     const relativePath = buildRelativePath(modulePath, componentPath);
     let classifiedName = strings.classify(`${options.name}Component`);
+
     if (options.classnameWithModule) {
       const modulePrefix = getModuleClassnamePrefix(source);
       if (modulePrefix) {
@@ -90,13 +133,11 @@ function addDeclarationToNgModule(options: ZorroComponentOptions): Rule {
     }
 
     const declarationChanges = addDeclarationToModule(
-      // TODO: TypeScript version mismatch due to @schematics/angular using a different version
-      // than Material. Cast to any to avoid the type assignment failure.
-      // tslint:disable-next-line no-any
-      source as any,
+      source,
       modulePath,
       classifiedName,
-      relativePath);
+      relativePath
+    );
 
     const declarationRecorder = host.beginUpdate(modulePath);
     for (const change of declarationChanges) {
@@ -112,13 +153,11 @@ function addDeclarationToNgModule(options: ZorroComponentOptions): Rule {
 
       const exportRecorder = host.beginUpdate(modulePath);
       const exportChanges = addExportToModule(
-        // TODO: TypeScript version mismatch due to @schematics/angular using a different version
-        // than Material. Cast to any to avoid the type assignment failure.
-        // tslint:disable-next-line no-any
-        source as any,
+        source,
         modulePath,
-        classifiedName,
-        relativePath);
+        strings.classify(`${options.name}Component`),
+        relativePath
+      );
 
       for (const change of exportChanges) {
         if (change instanceof InsertChange) {
@@ -134,12 +173,9 @@ function addDeclarationToNgModule(options: ZorroComponentOptions): Rule {
 
       const entryComponentRecorder = host.beginUpdate(modulePath);
       const entryComponentChanges = addEntryComponentToModule(
-        // TODO: TypeScript version mismatch due to @schematics/angular using a different version
-        // than Material. Cast to any to avoid the type assignment failure.
-        // tslint:disable-next-line no-any
-        source as any,
+        source,
         modulePath,
-        classifiedName,
+        strings.classify(`${options.name}Component`),
         relativePath);
 
       for (const change of entryComponentChanges) {
@@ -191,8 +227,8 @@ function indentTextContent(text: string, numSpaces: number): string {
 export function buildComponent(options: ZorroComponentOptions,
                                additionalFiles: { [ key: string ]: string } = {}): Rule {
 
-  return (host: Tree, context: FileSystemSchematicContext) => {
-    const workspace = getWorkspace(host);
+  return async (host: Tree, context: FileSystemSchematicContext) => {
+    const workspace = await getWorkspace(host);
     const project = getProjectFromWorkspace(workspace, options.project);
     const defaultZorroComponentOptions = getDefaultComponentOptions(project);
     let modulePrefix = '';
@@ -284,11 +320,11 @@ export function buildComponent(options: ZorroComponentOptions,
       move(null as any, parsedPath.path)
     ]);
 
-    return chain([
+    return () => chain([
       branchAndMerge(chain([
         addDeclarationToNgModule(options),
         mergeWith(templateSource)
       ]))
-    ])(host, context) as Rule;
+    ])(host, context);
   };
 }

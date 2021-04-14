@@ -1,3 +1,4 @@
+import { BidiModule } from '@angular/cdk/bidi';
 import { HttpClientJsonpModule, HttpClientModule } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +7,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterModule } from '@angular/router';
 import { ServiceWorkerModule } from '@angular/service-worker';
 import { IconDefinition } from '@ant-design/icons-angular';
-import { LeftOutline, RightOutline } from '@ant-design/icons-angular/icons';
+import { EditOutline, LeftOutline, RightOutline } from '@ant-design/icons-angular/icons';
 import { NzAffixModule } from 'ng-zorro-antd/affix';
 import { NzBadgeModule } from 'ng-zorro-antd/badge';
 import { NzButtonModule } from 'ng-zorro-antd/button';
@@ -20,24 +21,25 @@ import { NzMessageModule } from 'ng-zorro-antd/message';
 import { NzPopoverModule } from 'ng-zorro-antd/popover';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { ColorSketchModule } from 'ngx-color/sketch';
+import { HoverPreloadModule, HoverPreloadStrategy } from 'ngx-hover-preload';
 
 import { environment } from '../environments/environment';
 import { DEMOComponent } from './_demo/demo.component';
 import { AppComponent } from './app.component';
 import { routes } from './app.routing.module';
-
-import { QuicklinkModule, QuicklinkStrategy } from 'ngx-quicklink';
 import { FooterModule } from './footer/footer.module';
 import { HeaderModule } from './header/header.module';
 import { NzContributorsListModule } from './share/contributors-list/contributors-list.module';
 import { FixedWidgetsModule } from './share/fixed-widgets/fixed-widgets.module';
 import { NzNavBottomModule } from './share/nav-bottom/nav-bottom.module';
+import { SideComponent } from './side/side.component';
 
-const icons: IconDefinition[] = [LeftOutline, RightOutline];
+const icons: IconDefinition[] = [LeftOutline, RightOutline, EditOutline];
 
 @NgModule({
-  declarations: [AppComponent, DEMOComponent],
+  declarations: [AppComponent, DEMOComponent, SideComponent],
   imports: [
+    BidiModule,
     BrowserModule.withServerTransition({ appId: 'docs' }),
     BrowserAnimationsModule,
     FormsModule,
@@ -54,21 +56,22 @@ const icons: IconDefinition[] = [LeftOutline, RightOutline];
     NzPopoverModule,
     NzButtonModule,
     NzInputModule,
-    NzIconModule,
     NzBadgeModule,
     HttpClientJsonpModule,
     HeaderModule,
     FooterModule,
     NzContributorsListModule,
     FixedWidgetsModule,
-    QuicklinkModule,
+    HoverPreloadModule,
     RouterModule.forRoot(
       routes,
-      environment.production ? { preloadingStrategy: QuicklinkStrategy, scrollPositionRestoration: 'enabled' } : {}
+      environment.production
+        ? { preloadingStrategy: HoverPreloadStrategy, scrollPositionRestoration: 'enabled', initialNavigation: 'enabledBlocking' }
+        : {}
     ),
     ServiceWorkerModule.register('ngsw-worker.js', { enabled: environment.production && !environment.preProduction })
   ],
-  providers: [Title, { provide: NZ_CONFIG, useValue: { icon: { nzTwotoneColor: '#1890ff' } } }],
+  providers: [Title, { provide: NZ_CONFIG, useValue: { icon: { nzTwotoneColor: '#1890ff' }, global: { nzDirection: 'ltr' } } }],
   bootstrap: [AppComponent]
 })
 export class AppModule {}

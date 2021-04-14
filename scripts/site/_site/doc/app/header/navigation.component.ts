@@ -1,7 +1,11 @@
-import { Component, EventEmitter, Input, Output, ViewEncapsulation } from '@angular/core';
+import { Platform } from '@angular/cdk/platform';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnInit, Output, ViewEncapsulation } from '@angular/core';
+
+const CNMirrorSite = 'ng-zorro.gitee.io';
 
 @Component({
   selector: 'ul[nz-menu][app-navagation]',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <li nz-menu-item [nzSelected]="page === 'docs'">
       <a [routerLink]="['docs', 'introduce', language]">
@@ -14,9 +18,12 @@ import { Component, EventEmitter, Input, Output, ViewEncapsulation } from '@angu
       </a>
     </li>
     <li nz-menu-item [nzSelected]="page === 'experimental'">
-      <a [routerLink]="['experimental', 'resizable', language]">
+      <a [routerLink]="['experimental', 'pipes', language]">
         <span>{{ language == 'zh' ? '实验性功能' : 'Experimental' }}</span>
       </a>
+    </li>
+    <li *ngIf="showCNMirror && language == 'zh'" nz-menu-item [nzSelected]="false">
+      <a href="https://ng-zorro.gitee.io/">国内镜像</a>
     </li>
     <ng-container *ngIf="!isMobile && responsive === 'crowded'">
       <li nz-submenu [nzTitle]="additionalTitle" nzMenuClassName="top-menu-additional">
@@ -31,9 +38,7 @@ import { Component, EventEmitter, Input, Output, ViewEncapsulation } from '@angu
     </ng-container>
     <ng-template #additionalItems>
       <li nz-menu-item>
-        <a href="https://github.com/NG-ZORRO/ng-zorro-antd" target="_blank" rel="noopener noreferrer">
-          Github
-        </a>
+        <a href="https://github.com/NG-ZORRO/ng-zorro-antd" target="_blank" rel="noopener noreferrer">Github</a>
       </li>
       <li nz-menu-item>
         <a (click)="changeLanguage(language === 'zh' ? 'en' : 'zh', $event)">{{ language == 'zh' ? 'English' : '中文' }}</a>
@@ -54,13 +59,22 @@ import { Component, EventEmitter, Input, Output, ViewEncapsulation } from '@angu
   },
   encapsulation: ViewEncapsulation.None
 })
-export class NavigationComponent {
+export class NavigationComponent implements OnInit {
   @Input() language: 'zh' | 'en' = 'zh';
   @Output() languageChange = new EventEmitter<'zh' | 'en'>();
   @Input() responsive: null | 'narrow' | 'crowded' = null;
   @Input() page: 'docs' | 'components' | 'experimental' | string = 'docs';
   @Input() isMobile = false;
-  constructor() {}
+  showCNMirror = false;
+
+  constructor(private platform: Platform) {}
+
+  ngOnInit(): void {
+    if (this.platform.isBrowser) {
+      this.showCNMirror = location.hostname !== CNMirrorSite;
+    }
+  }
+
   changeLanguage(language: 'zh' | 'en', e: MouseEvent): void {
     e.preventDefault();
     this.languageChange.emit(language);

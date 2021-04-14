@@ -1,38 +1,12 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { BidiModule, Dir } from '@angular/cdk/bidi';
+import { Component, Input, OnInit, ViewChild } from '@angular/core';
 import { fakeAsync, tick } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ɵComponentBed as ComponentBed, ɵcreateComponentBed as createComponentBed } from 'ng-zorro-antd/core/testing';
 import { NzIconTestModule } from 'ng-zorro-antd/icon/testing';
-import { NzButtonComponent, NzButtonModule, NzButtonShape, NzButtonSize, NzButtonType } from './index';
+import { NzButtonComponent, NzButtonShape, NzButtonSize, NzButtonType } from './index';
 
 describe('button', () => {
-  describe('anchor', () => {
-    let testBed: ComponentBed<TestAnchorButtonComponent>;
-    let buttonElement: HTMLAnchorElement;
-
-    beforeEach(() => {
-      testBed = createComponentBed(TestAnchorButtonComponent, { imports: [NzButtonModule] });
-      buttonElement = testBed.debugElement.query(By.css('a')).nativeElement;
-    });
-
-    it('should disabled work', () => {
-      testBed.component.disabled = false;
-      testBed.fixture.detectChanges();
-
-      expect(buttonElement.getAttribute('disabled')).toBeNull();
-
-      testBed.component.disabled = true;
-      testBed.fixture.detectChanges();
-
-      expect(buttonElement.getAttribute('disabled')).not.toBeNull();
-      expect(buttonElement.getAttribute('tabindex')).toBe('-1');
-
-      // If the page reloads will be thrown an error
-      expect(() => {
-        buttonElement.click();
-      }).not.toThrowError();
-    });
-  });
   describe('className', () => {
     let testBed: ComponentBed<TestButtonComponent>;
     let buttonElement: HTMLButtonElement;
@@ -161,6 +135,23 @@ describe('button', () => {
       expect(buttonElement.classList).toContain('ant-btn-icon-only');
     });
   });
+  describe('RTL', () => {
+    let testBed: ComponentBed<TestButtonRtlComponent>;
+    let buttonElement: HTMLButtonElement;
+    beforeEach(() => {
+      testBed = createComponentBed(TestButtonRtlComponent, { declarations: [NzButtonComponent], imports: [BidiModule] });
+      buttonElement = testBed.debugElement.query(By.directive(NzButtonComponent)).nativeElement;
+    });
+
+    it('should apply classname', () => {
+      testBed.fixture.detectChanges();
+      expect(buttonElement.classList).toContain('ant-btn-rtl');
+
+      testBed.fixture.componentInstance.direction = 'ltr';
+      testBed.fixture.detectChanges();
+      expect(buttonElement.classList).not.toContain('ant-btn-rtl');
+    });
+  });
 });
 
 @Component({
@@ -241,8 +232,25 @@ export class TestButtonIconOnlyComponent {}
 export class TestButtonIconOnlyLoadingComponent {}
 
 @Component({
-  template: ` <a nz-button href="https://ng.ant.design/" [disabled]="disabled">anchor</a> `
+  template: `
+    <div [dir]="direction">
+      <button
+        nz-button
+        [nzType]="nzType"
+        [nzGhost]="nzGhost"
+        [nzSearch]="nzSearch"
+        [nzLoading]="nzLoading"
+        [nzDanger]="nzDanger"
+        [nzShape]="nzShape"
+        [nzBlock]="nzBlock"
+        [nzSize]="nzSize"
+      >
+        button
+      </button>
+    </div>
+  `
 })
-export class TestAnchorButtonComponent {
-  disabled = false;
+export class TestButtonRtlComponent extends TestButtonComponent {
+  @ViewChild(Dir) dir!: Dir;
+  direction = 'rtl';
 }

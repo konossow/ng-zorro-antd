@@ -87,25 +87,41 @@ describe('NzPopover', () => {
     expect(getTitleTextContent()).toBeNull();
     expect(getInnerTextContent()).toBeNull();
   }));
+
+  // changing content on the directive should be synced to the component
+  it('should set `setContent` proxy to `nzContent`', fakeAsync(() => {
+    const triggerElement = component.changePopover.nativeElement;
+
+    dispatchMouseEvent(triggerElement, 'mouseenter');
+    waitingForTooltipToggling();
+    expect(getInnerTextContent()).toContain('content');
+
+    component.content = 'changed-content';
+    fixture.detectChanges();
+    expect(getInnerTextContent()).toContain('changed-content');
+  }));
+
+  it('should nzPopoverBackdrop work', fakeAsync(() => {
+    const triggerElement = component.backdropPopover.nativeElement;
+    dispatchMouseEvent(triggerElement, 'click');
+    waitingForTooltipToggling();
+    expect(overlayContainerElement.children[0].classList).toContain('cdk-overlay-backdrop');
+  }));
 });
 
 @Component({
   template: `
-    <a #stringPopover nz-popover nzTitle="title-string" nzContent="content-string">
-      Show
-    </a>
+    <a #stringPopover nz-popover nzPopoverTitle="title-string" nzPopoverContent="content-string">Show</a>
 
-    <a #templatePopover nz-popover [nzTitle]="templateTitle" [nzContent]="templateContent">
-      Show
-    </a>
+    <a #templatePopover nz-popover [nzPopoverTitle]="templateTitle" [nzPopoverContent]="templateContent">Show</a>
 
-    <ng-template #templateTitle>
-      title-template
-    </ng-template>
+    <a #changePopover nz-popover nzPopoverTitle="title-change" [nzPopoverContent]="content"></a>
 
-    <ng-template #templateContent>
-      content-template
-    </ng-template>
+    <a #backdropPopover nz-popover nzPopoverContent="content-string" nzPopoverTrigger="click" [nzPopoverBackdrop]="true"></a>
+
+    <ng-template #templateTitle>title-template</ng-template>
+
+    <ng-template #templateContent>content-template</ng-template>
   `
 })
 export class NzPopoverTestComponent {
@@ -117,6 +133,13 @@ export class NzPopoverTestComponent {
   @ViewChild('templatePopover', { static: false, read: NzPopoverDirective })
   templatePopoverNzPopoverDirective!: NzPopoverDirective;
 
+  @ViewChild('changePopover', { static: true }) changePopover!: ElementRef;
+  @ViewChild('changePopover', { static: true, read: NzPopoverDirective })
+  changePopoverNzPopoverDirective!: NzPopoverDirective;
+
+  @ViewChild('backdropPopover', { static: true }) backdropPopover!: ElementRef;
+
+  content = 'content';
   visible = false;
   visibilityTogglingCount = 0;
 

@@ -3,9 +3,20 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, ViewEncapsulation } from '@angular/core';
+import { Direction, Directionality } from '@angular/cdk/bidi';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  Input,
+  OnDestroy,
+  OnInit,
+  Optional,
+  ViewEncapsulation
+} from '@angular/core';
 
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
 import { BooleanInput } from 'ng-zorro-antd/core/types';
 import { InputBoolean } from 'ng-zorro-antd/core/util';
 import { Subject } from 'rxjs';
@@ -13,40 +24,63 @@ import { takeUntil } from 'rxjs/operators';
 
 import { NzCollapsePanelComponent } from './collapse-panel.component';
 
-const NZ_CONFIG_COMPONENT_NAME = 'collapse';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'collapse';
 
 @Component({
   selector: 'nz-collapse',
   exportAs: 'nzCollapse',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  template: ` <ng-content></ng-content> `,
+  template: `
+    <ng-content></ng-content>
+  `,
   host: {
-    '[class.ant-collapse]': 'true',
     '[class.ant-collapse-icon-position-left]': `nzExpandIconPosition === 'left'`,
     '[class.ant-collapse-icon-position-right]': `nzExpandIconPosition === 'right'`,
     '[class.ant-collapse-ghost]': `nzGhost`,
-    '[class.ant-collapse-borderless]': '!nzBordered'
+    '[class.ant-collapse-borderless]': '!nzBordered',
+    '[class.ant-collapse-rtl]': "dir === 'rtl'"
   }
 })
-export class NzCollapseComponent implements OnDestroy {
+export class NzCollapseComponent implements OnDestroy, OnInit {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
   static ngAcceptInputType_nzAccordion: BooleanInput;
   static ngAcceptInputType_nzBordered: BooleanInput;
   static ngAcceptInputType_nzGhost: BooleanInput;
 
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzAccordion: boolean = false;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzBordered: boolean = true;
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) @InputBoolean() nzGhost: boolean = false;
+  @Input() @WithConfig() @InputBoolean() nzAccordion: boolean = false;
+  @Input() @WithConfig() @InputBoolean() nzBordered: boolean = true;
+  @Input() @WithConfig() @InputBoolean() nzGhost: boolean = false;
   @Input() nzExpandIconPosition: 'left' | 'right' = 'left';
+
+  dir: Direction = 'ltr';
+
   private listOfNzCollapsePanelComponent: NzCollapsePanelComponent[] = [];
   private destroy$ = new Subject();
-  constructor(public nzConfigService: NzConfigService, private cdr: ChangeDetectorRef) {
+  constructor(
+    public nzConfigService: NzConfigService,
+    private cdr: ChangeDetectorRef,
+    private elementRef: ElementRef,
+    @Optional() private directionality: Directionality
+  ) {
+    // TODO: move to host after View Engine deprecation
+    this.elementRef.nativeElement.classList.add('ant-collapse');
+
     this.nzConfigService
-      .getConfigChangeEventForComponent(NZ_CONFIG_COMPONENT_NAME)
+      .getConfigChangeEventForComponent(NZ_CONFIG_MODULE_NAME)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         this.cdr.markForCheck();
       });
+  }
+
+  ngOnInit(): void {
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.cdr.detectChanges();
+    });
+
+    this.dir = this.directionality.value;
   }
 
   addPanel(value: NzCollapsePanelComponent): void {

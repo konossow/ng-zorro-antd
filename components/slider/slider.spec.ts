@@ -1,6 +1,7 @@
+import { BidiModule, Dir } from '@angular/cdk/bidi';
 import { DOWN_ARROW, LEFT_ARROW, RIGHT_ARROW, UP_ARROW } from '@angular/cdk/keycodes';
 import { OverlayContainer } from '@angular/cdk/overlay';
-import { Component, DebugElement, OnInit } from '@angular/core';
+import { Component, DebugElement, OnInit, ViewChild } from '@angular/core';
 import { ComponentFixture, fakeAsync, inject, tick } from '@angular/core/testing';
 import { AbstractControl, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { By } from '@angular/platform-browser';
@@ -254,6 +255,35 @@ describe('nz-slider', () => {
       fixture.detectChanges();
 
       expect(sliderInstance.value).toBe(32);
+    });
+  });
+
+  describe('marks', () => {
+    let testBed: ComponentBed<SliderWithMarksComponent>;
+    let fixture: ComponentFixture<SliderWithMarksComponent>;
+    let markListElement: HTMLElement;
+
+    beforeEach(() => {
+      testBed = createComponentBed(SliderWithMarksComponent, {
+        imports: [NzSliderModule, FormsModule, ReactiveFormsModule, NoopAnimationsModule]
+      });
+      fixture = testBed.fixture;
+      fixture.detectChanges();
+
+      getReferenceFromFixture(fixture);
+      markListElement = sliderNativeElement.querySelector('.ant-slider-mark') as HTMLElement;
+    });
+
+    it('should have start mark at the start', () => {
+      const value0Mark = markListElement.children[0] as HTMLElement;
+
+      expect(value0Mark.style.left).toEqual('0%');
+    });
+
+    it('should have end mark at the end', () => {
+      const value100Mark = markListElement.children[1] as HTMLElement;
+
+      expect(value100Mark.style.left).toEqual('100%');
     });
   });
 
@@ -532,6 +562,53 @@ describe('nz-slider', () => {
       const trackElement = (sliderDebugElements[0].nativeElement as HTMLElement).querySelector('.ant-slider-track') as HTMLElement;
       expect(trackElement.style.width).toBe('1%');
     });
+
+    it('should reverse marks', () => {
+      const markList = (sliderDebugElements[0].nativeElement as HTMLElement).querySelector('.ant-slider-mark') as HTMLElement;
+      const value0Mark = markList.children[0] as HTMLElement;
+      const value100Mark = markList.children[1] as HTMLElement;
+
+      expect(value0Mark.style.left).toEqual('100%');
+      expect(value100Mark.style.left).toEqual('0%');
+    });
+
+    it('should reverse steps', () => {
+      const stepList = (sliderDebugElements[0].nativeElement as HTMLElement).querySelector('.ant-slider-step') as HTMLElement;
+      const value0Step = stepList.children[0] as HTMLElement;
+      const value100Step = stepList.children[1] as HTMLElement;
+
+      expect(value0Step.style.left).toEqual('100%');
+      expect(value100Step.style.left).toEqual('0%');
+    });
+  });
+
+  describe('reverse and min and max', () => {
+    let testBed: ComponentBed<ReverseSliderWithMinAndMaxComponent>;
+    let fixture: ComponentFixture<ReverseSliderWithMinAndMaxComponent>;
+
+    beforeEach(() => {
+      testBed = createComponentBed(ReverseSliderWithMinAndMaxComponent, {
+        imports: [NzSliderModule, FormsModule, ReactiveFormsModule, NoopAnimationsModule]
+      });
+      fixture = testBed.fixture;
+      fixture.detectChanges();
+
+      getReferenceFromFixture(fixture);
+    });
+
+    it('should set the correct maximum value', () => {
+      dispatchClickEventSequence(sliderNativeElement, 0);
+      fixture.detectChanges();
+
+      expect(sliderInstance.value).toEqual(6);
+    });
+
+    it('should set the correct minimum value', () => {
+      dispatchClickEventSequence(sliderNativeElement, 1);
+      fixture.detectChanges();
+
+      expect(sliderInstance.value).toEqual(4);
+    });
   });
 
   describe('mixed usage', () => {
@@ -564,6 +641,7 @@ describe('nz-slider', () => {
       fixture.detectChanges();
 
       dispatchClickEventSequence(sliderNativeElement, 0.1);
+
       // Potentially a bug of jasmine or karma. Event handler makes calling stack destroyed.
       // dispatchClickEventSequence(sliderNativeElement, 0.8);
       fixture.detectChanges();
@@ -622,8 +700,32 @@ describe('nz-slider', () => {
       expect(overlayContainerElement.textContent).toContain('VALUE-13');
 
       dispatchMouseEvent(handlerHost, 'mouseleave');
-      tick(400); // Wait for tooltip's animations
+      tick(400); // wait for tooltip's animations
       expect(overlayContainerElement.textContent).not.toContain('VALUE-13');
+    }));
+
+    // fix #5699, Slider should work with decimals as well
+    it('should work with decimals', fakeAsync(() => {
+      testComponent.marks = {
+        0.5: '0.5',
+        0.8: '0.8',
+        1: '1',
+        1.2: '1.2',
+        1.5: '1.5',
+        2: '2'
+      };
+      testComponent.min = 0.5;
+      testComponent.max = 2;
+      testComponent.step = null;
+      fixture.detectChanges();
+
+      dispatchClickEventSequence(sliderNativeElement, 0.13);
+      fixture.detectChanges();
+      expect(sliderInstance.value).toBe(0.8);
+
+      dispatchClickEventSequence(sliderNativeElement, 0.6);
+      fixture.detectChanges();
+      expect(sliderInstance.value).toBe(1.5);
     }));
   });
 
@@ -772,6 +874,67 @@ describe('nz-slider', () => {
       expect(sliderInstance.value).toEqual([2, 99]);
     });
   });
+
+  describe('RTL', () => {
+    let testBed: ComponentBed<NzTestSliderRtlComponent>;
+    let fixture: ComponentFixture<NzTestSliderRtlComponent>;
+    let trackFillElement: HTMLElement;
+    let trackHandleElement: HTMLElement;
+
+    beforeEach(() => {
+      testBed = createComponentBed(NzTestSliderRtlComponent, {
+        imports: [NzSliderModule, BidiModule, NoopAnimationsModule]
+      });
+      fixture = testBed.fixture;
+      fixture.detectChanges();
+
+      getReferenceFromFixture(fixture);
+      trackFillElement = sliderNativeElement.querySelector('.ant-slider-track') as HTMLElement;
+      trackHandleElement = sliderNativeElement.querySelector('.ant-slider-handle') as HTMLElement;
+    });
+
+    it('should className correct on dir change', fakeAsync(() => {
+      expect(sliderNativeElement.classList).toContain('ant-slider-rtl');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+      expect(sliderNativeElement.classList).not.toContain('ant-slider-rtl');
+    }));
+
+    it('should update the track fill on click', fakeAsync(() => {
+      expect(trackFillElement.style.width).toBe('0%');
+
+      dispatchClickEventSequence(sliderNativeElement, 0.39, true);
+      fixture.detectChanges();
+
+      expect(trackFillElement.style.width).toBe('39%');
+    }));
+
+    it('should update track fill style on direction change', () => {
+      expect(trackFillElement.style.left).toBe('auto');
+      expect(trackFillElement.style.right).toBe('0%');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+
+      expect(trackFillElement.style.left).toBe('0%');
+      expect(trackFillElement.style.right).toBe('auto');
+    });
+
+    it('should update track handle style on direction change', () => {
+      dispatchClickEventSequence(sliderNativeElement, 0.39, true);
+      fixture.detectChanges();
+
+      expect(trackHandleElement.style.left).toBe('auto');
+      expect(trackHandleElement.style.right).toBe('39%');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+
+      expect(trackHandleElement.style.right).toBe('auto');
+      expect(trackHandleElement.style.left).toBe('39%');
+    });
+  });
 });
 
 const styles = `
@@ -786,14 +949,18 @@ const styles = `
 `;
 
 @Component({
-  template: ` <nz-slider [nzDisabled]="disabled"></nz-slider> `,
+  template: `
+    <nz-slider [nzDisabled]="disabled"></nz-slider>
+  `,
   styles: [styles]
 })
 class NzTestSliderComponent {
   disabled = false;
 }
 @Component({
-  template: ` <nz-slider [nzMin]="min" [nzMax]="max"></nz-slider> `,
+  template: `
+    <nz-slider [nzMin]="min" [nzMax]="max"></nz-slider>
+  `,
   styles: [styles]
 })
 class SliderWithMinAndMaxComponent {
@@ -802,13 +969,26 @@ class SliderWithMinAndMaxComponent {
 }
 
 @Component({
-  template: ` <nz-slider [ngModel]="26"></nz-slider> `,
+  template: `
+    <nz-slider [ngModel]="26"></nz-slider>
+  `,
   styles: [styles]
 })
 class SliderWithValueComponent {}
 
 @Component({
-  template: ` <nz-slider [nzStep]="step"></nz-slider> `,
+  template: `
+    <nz-slider [nzMarks]="marks"></nz-slider>
+  `
+})
+class SliderWithMarksComponent {
+  marks: { [mark: number]: string } = { 100: '(100%)', 0: '(0%)' };
+}
+
+@Component({
+  template: `
+    <nz-slider [nzStep]="step"></nz-slider>
+  `,
   styles: [styles]
 })
 class SliderWithStepComponent {
@@ -816,31 +996,47 @@ class SliderWithStepComponent {
 }
 
 @Component({
-  template: ` <nz-slider [ngModel]="3" [nzMin]="4" [nzMax]="6"></nz-slider> `,
+  template: `
+    <nz-slider [ngModel]="3" [nzMin]="4" [nzMax]="6"></nz-slider>
+  `,
   styles: [styles]
 })
 class SliderWithValueSmallerThanMinComponent {}
 
 @Component({
-  template: ` <nz-slider [ngModel]="7" [nzMin]="4" [nzMax]="6"></nz-slider> `,
+  template: `
+    <nz-slider [ngModel]="7" [nzMin]="4" [nzMax]="6"></nz-slider>
+  `,
   styles: [styles]
 })
 class SliderWithValueGreaterThanMaxComponent {}
 
 @Component({
-  template: ` <nz-slider nzVertical></nz-slider> `,
+  template: `
+    <nz-slider nzVertical></nz-slider>
+  `,
   styles: [styles]
 })
 class VerticalSliderComponent {}
 
 @Component({
   template: `
-    <nz-slider nzReverse></nz-slider>
+    <nz-slider nzReverse [nzMarks]="marks"></nz-slider>
     <nz-slider nzReverse nzRange></nz-slider>
     <nz-slider nzVertical nzReverse></nz-slider>
   `
 })
-class ReverseSliderComponent {}
+class ReverseSliderComponent {
+  marks: { [mark: number]: string } = { 100: '(100%)', 0: '(0%)' };
+}
+
+@Component({
+  template: `
+    <nz-slider [nzMin]="4" [nzMax]="6" nzReverse></nz-slider>
+  `,
+  styles: [styles]
+})
+class ReverseSliderWithMinAndMaxComponent {}
 
 @Component({
   template: `
@@ -851,16 +1047,20 @@ class ReverseSliderComponent {}
       [nzDots]="dots"
       [nzIncluded]="included"
       [nzTipFormatter]="tipFormatter"
+      [nzMin]="min"
+      [nzMax]="max"
     ></nz-slider>
   `,
   styles: [styles]
 })
 class MixedSliderComponent {
-  range = false;
-  step: number | null = 1;
-  marks = { 22: '(22%)', 36: '(36%)' };
   dots = false;
   included = true;
+  marks: { [mark: number]: string } = { 22: '(22%)', 36: '(36%)' };
+  max = 100;
+  min = 0;
+  range = false;
+  step: number | null = 1;
 
   tipFormatter(value: number): string {
     return `VALUE-${value}`;
@@ -888,7 +1088,9 @@ class SliderWithFormControlComponent implements OnInit {
 }
 
 @Component({
-  template: ` <nz-slider [nzTooltipVisible]="show" [ngModel]="value"></nz-slider> `
+  template: `
+    <nz-slider [nzTooltipVisible]="show" [ngModel]="value"></nz-slider>
+  `
 })
 class SliderShowTooltipComponent {
   show: NzSliderShowTooltip = 'default';
@@ -896,7 +1098,9 @@ class SliderShowTooltipComponent {
 }
 
 @Component({
-  template: ` <nz-slider [nzRange]="range"></nz-slider> `
+  template: `
+    <nz-slider [nzRange]="range"></nz-slider>
+  `
 })
 class NzTestSliderKeyboardComponent {
   range = false;
@@ -909,11 +1113,11 @@ class NzTestSliderKeyboardComponent {
  * @param percentage The percentage of the slider where the click should occur. Used to find the
  * physical location of the click.
  */
-function dispatchClickEventSequence(sliderElement: HTMLElement, percentage: number): void {
+function dispatchClickEventSequence(sliderElement: HTMLElement, percentage: number, isRtl: boolean = false): void {
   const trackElement = sliderElement.querySelector('.ant-slider-rail')!;
   const dimensions = trackElement.getBoundingClientRect();
-  const x = dimensions.left + dimensions.width * percentage;
-  const y = dimensions.top + dimensions.height * percentage;
+  const x = dimensions.left + dimensions.width * (isRtl ? 1 - percentage : percentage);
+  const y = dimensions.top + dimensions.height * (isRtl ? 1 - percentage : percentage);
 
   dispatchMouseenterEvent(sliderElement);
   dispatchMouseEvent(sliderElement, 'mousedown', x, y);
@@ -992,4 +1196,16 @@ function dispatchMouseenterEvent(element: HTMLElement): void {
   const x = dimensions.left;
 
   dispatchMouseEvent(element, 'mouseenter', x, y);
+}
+
+@Component({
+  template: `
+    <div [dir]="direction">
+      <nz-slider></nz-slider>
+    </div>
+  `
+})
+export class NzTestSliderRtlComponent {
+  @ViewChild(Dir) dir!: Dir;
+  direction = 'rtl';
 }

@@ -17,10 +17,11 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
-import { NgClassInterface, NgStyleInterface, NzShapeSCType, NzSizeLDSType } from 'ng-zorro-antd/core/types';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { NgClassInterface, NgStyleInterface, NumberInput, NzShapeSCType, NzSizeLDSType } from 'ng-zorro-antd/core/types';
+import { InputNumber } from 'ng-zorro-antd/core/util';
 
-const NZ_CONFIG_COMPONENT_NAME = 'avatar';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'avatar';
 
 @Component({
   selector: 'nz-avatar',
@@ -31,7 +32,6 @@ const NZ_CONFIG_COMPONENT_NAME = 'avatar';
     <span class="ant-avatar-string" #textEl [ngStyle]="textStyles" *ngIf="nzText && hasText">{{ nzText }}</span>
   `,
   host: {
-    '[class.ant-avatar]': 'true',
     '[class.ant-avatar-lg]': `nzSize === 'large'`,
     '[class.ant-avatar-sm]': `nzSize === 'small'`,
     '[class.ant-avatar-square]': `nzShape === 'square'`,
@@ -49,8 +49,12 @@ const NZ_CONFIG_COMPONENT_NAME = 'avatar';
   encapsulation: ViewEncapsulation.None
 })
 export class NzAvatarComponent implements OnChanges {
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzShape: NzShapeSCType = 'circle';
-  @Input() @WithConfig(NZ_CONFIG_COMPONENT_NAME) nzSize: NzSizeLDSType | number = 'default';
+  static ngAcceptInputType_nzGap: NumberInput;
+
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
+  @Input() @WithConfig() nzShape: NzShapeSCType = 'circle';
+  @Input() @WithConfig() nzSize: NzSizeLDSType | number = 'default';
+  @Input() @WithConfig() @InputNumber() nzGap = 4;
   @Input() nzText?: string;
   @Input() nzSrc?: string;
   @Input() nzSrcSet?: string;
@@ -74,7 +78,10 @@ export class NzAvatarComponent implements OnChanges {
     private elementRef: ElementRef,
     private cdr: ChangeDetectorRef,
     private platform: Platform
-  ) {}
+  ) {
+    // TODO: move to host after View Engine deprecation
+    this.elementRef.nativeElement.classList.add('ant-avatar');
+  }
 
   imgError($event: Event): void {
     this.nzError.emit($event);
@@ -109,7 +116,9 @@ export class NzAvatarComponent implements OnChanges {
 
     const childrenWidth = this.textEl!.nativeElement.offsetWidth;
     const avatarWidth = this.el.getBoundingClientRect().width;
-    const scale = avatarWidth - 8 < childrenWidth ? (avatarWidth - 8) / childrenWidth : 1;
+    const offset = this.nzGap * 2 < avatarWidth ? this.nzGap * 2 : 8;
+    const scale = avatarWidth - offset < childrenWidth ? (avatarWidth - offset) / childrenWidth : 1;
+
     this.textStyles = {
       transform: `scale(${scale}) translateX(-50%)`
     };

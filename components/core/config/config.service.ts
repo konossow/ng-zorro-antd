@@ -52,7 +52,7 @@ export class NzConfigService {
  * config.
  */
 // tslint:disable-next-line:typedef
-export function WithConfig<T>(componentName: NzConfigKey) {
+export function WithConfig<T>() {
   return function ConfigDecorator(target: NzSafeAny, propName: NzSafeAny, originalDescriptor?: TypedPropertyDescriptor<T>): NzSafeAny {
     const privatePropName = `$$__assignedValue__${propName}`;
 
@@ -71,7 +71,7 @@ export function WithConfig<T>(componentName: NzConfigKey) {
           return originalValue;
         }
 
-        const componentConfig = this.nzConfigService.getConfigForComponent(componentName) || {};
+        const componentConfig = this.nzConfigService.getConfigForComponent(this._nzModuleName) || {};
         const configValue = componentConfig[propName];
         const ret = isDefined(configValue) ? configValue : originalValue;
 
@@ -83,7 +83,7 @@ export function WithConfig<T>(componentName: NzConfigKey) {
         this.assignmentCount[propName] = (this.assignmentCount[propName] || 0) + 1;
 
         if (originalDescriptor?.set) {
-          originalDescriptor.set.bind(this)(value);
+          originalDescriptor.set.bind(this)(value!);
         } else {
           this[privatePropName] = value;
         }

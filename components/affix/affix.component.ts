@@ -8,6 +8,7 @@ import { DOCUMENT } from '@angular/common';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   EventEmitter,
@@ -16,13 +17,15 @@ import {
   NgZone,
   OnChanges,
   OnDestroy,
+  OnInit,
+  Optional,
   Output,
   Renderer2,
   SimpleChanges,
   ViewChild,
   ViewEncapsulation
 } from '@angular/core';
-import { NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
+import { NzConfigKey, NzConfigService, WithConfig } from 'ng-zorro-antd/core/config';
 import { NzScrollService } from 'ng-zorro-antd/core/services';
 import { NgStyleInterface, NumberInput, NzSafeAny } from 'ng-zorro-antd/core/types';
 import { getStyleAsText, InputNumber, shallowEqual } from 'ng-zorro-antd/core/util';
@@ -30,10 +33,11 @@ import { getStyleAsText, InputNumber, shallowEqual } from 'ng-zorro-antd/core/ut
 import { fromEvent, merge, ReplaySubject, Subject, Subscription } from 'rxjs';
 import { auditTime, map, takeUntil } from 'rxjs/operators';
 
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import { AffixRespondEvents } from './respond-events';
 import { getTargetRect, SimpleRect } from './utils';
 
-const NZ_CONFIG_COMPONENT_NAME = 'affix';
+const NZ_CONFIG_MODULE_NAME: NzConfigKey = 'affix';
 const NZ_AFFIX_CLS_PREFIX = 'ant-affix';
 const NZ_AFFIX_DEFAULT_SCROLL_TIME = 20;
 
@@ -48,7 +52,8 @@ const NZ_AFFIX_DEFAULT_SCROLL_TIME = 20;
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None
 })
-export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy, OnInit {
+  readonly _nzModuleName: NzConfigKey = NZ_CONFIG_MODULE_NAME;
   static ngAcceptInputType_nzOffsetTop: NumberInput;
   static ngAcceptInputType_nzOffsetBottom: NumberInput;
 
@@ -57,16 +62,18 @@ export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() nzTarget?: string | Element | Window;
 
   @Input()
-  @WithConfig<number | null>(NZ_CONFIG_COMPONENT_NAME)
+  @WithConfig<number | null>()
   @InputNumber(undefined)
   nzOffsetTop?: null | number;
 
   @Input()
-  @WithConfig<number | null>(NZ_CONFIG_COMPONENT_NAME)
+  @WithConfig<number | null>()
   @InputNumber(undefined)
   nzOffsetBottom?: null | number;
 
   @Output() readonly nzChange = new EventEmitter<boolean>();
+
+  dir: Direction = 'ltr';
 
   private readonly placeholderNode: HTMLElement;
 
@@ -90,11 +97,24 @@ export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy {
     private scrollSrv: NzScrollService,
     private ngZone: NgZone,
     private platform: Platform,
-    private renderer: Renderer2
+    private renderer: Renderer2,
+    private cdr: ChangeDetectorRef,
+    @Optional() private directionality: Directionality
   ) {
     // The wrapper would stay at the original position as a placeholder.
     this.placeholderNode = el.nativeElement;
     this.document = doc;
+  }
+
+  ngOnInit(): void {
+    this.directionality.change?.pipe(takeUntil(this.destroy$)).subscribe((direction: Direction) => {
+      this.dir = direction;
+      this.registerListeners();
+      this.updatePosition({} as Event);
+      this.cdr.detectChanges();
+    });
+
+    this.dir = this.directionality.value;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -117,6 +137,10 @@ export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private registerListeners(): void {
+    if (!this.platform.isBrowser) {
+      return;
+    }
+
     this.removeListeners();
     this.positionChangeSubscription = this.ngZone.runOutsideAngular(() => {
       return merge(
@@ -177,7 +201,7 @@ export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy {
     } else {
       wrapEl.classList.remove(NZ_AFFIX_CLS_PREFIX);
     }
-
+    this.updateRtlClass();
     if ((affixStyle && !originalAffixStyle) || (!affixStyle && originalAffixStyle)) {
       this.nzChange.emit(fixed);
     }
@@ -282,6 +306,19 @@ export class NzAffixComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     if (e.type === 'resize') {
       this.syncPlaceholderStyle(e);
+    }
+  }
+
+  private updateRtlClass(): void {
+    const wrapEl = this.fixedEl.nativeElement;
+    if (this.dir === 'rtl') {
+      if (wrapEl.classList.contains(NZ_AFFIX_CLS_PREFIX)) {
+        wrapEl.classList.add(`${NZ_AFFIX_CLS_PREFIX}-rtl`);
+      } else {
+        wrapEl.classList.remove(`${NZ_AFFIX_CLS_PREFIX}-rtl`);
+      }
+    } else {
+      wrapEl.classList.remove(`${NZ_AFFIX_CLS_PREFIX}-rtl`);
     }
   }
 }

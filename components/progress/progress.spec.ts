@@ -1,3 +1,4 @@
+import { BidiModule, Dir } from '@angular/cdk/bidi';
 import { Component, DebugElement, TemplateRef, ViewChild } from '@angular/core';
 import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -9,12 +10,13 @@ import { NzProgressFormatter, NzProgressGapPositionType, NzProgressStrokeColorTy
 describe('progress', () => {
   beforeEach(fakeAsync(() => {
     TestBed.configureTestingModule({
-      imports: [NzProgressModule],
+      imports: [BidiModule, NzProgressModule],
       declarations: [
         NzTestProgressLineComponent,
         NzTestProgressDashBoardComponent,
         NzTestProgressCircleComponent,
-        NzTestProgressCircleSuccessComponent
+        NzTestProgressCircleSuccessComponent,
+        NzTestProgressRtlComponent
       ]
     });
     TestBed.compileComponents();
@@ -178,6 +180,11 @@ describe('progress', () => {
 
       expect(steps.length).toBe(5);
       expect((steps[0] as HTMLDivElement).style.backgroundColor).toBe('rgb(16, 142, 233)');
+      expect((steps[4] as HTMLDivElement).style.backgroundColor).toBeFalsy();
+
+      testComponent.percent = 80;
+      fixture.detectChanges();
+
       expect((steps[4] as HTMLDivElement).style.backgroundColor).toBeFalsy();
     });
   });
@@ -383,6 +390,27 @@ describe('progress', () => {
       expect(progress.nativeElement.querySelectorAll('.ant-progress-circle-path')[1].style.stroke).toBe('rgb(135, 208, 104)');
     });
   });
+
+  describe('RTL', () => {
+    let fixture: ComponentFixture<NzTestProgressRtlComponent>;
+    let progress: DebugElement;
+
+    beforeEach(() => {
+      fixture = TestBed.createComponent(NzTestProgressRtlComponent);
+      fixture.detectChanges();
+      progress = fixture.debugElement.query(By.directive(NzProgressComponent));
+    });
+
+    it('should className correct', () => {
+      fixture.detectChanges();
+      expect(progress.nativeElement.firstElementChild.classList).toContain('ant-progress-rtl');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+
+      expect(progress.nativeElement.firstElementChild.classList).not.toContain('ant-progress-rtl');
+    });
+  });
 });
 
 @Component({
@@ -398,9 +426,8 @@ describe('progress', () => {
       [nzStrokeColor]="strokeColor"
       [nzStrokeLinecap]="strokeLinecap"
       [nzSteps]="steps"
-    >
-    </nz-progress>
-    <ng-template #formatterTemplate let-percent> {{ percent }} / 100 </ng-template>
+    ></nz-progress>
+    <ng-template #formatterTemplate let-percent>{{ percent }} / 100</ng-template>
   `
 })
 export class NzTestProgressLineComponent {
@@ -428,8 +455,7 @@ export class NzTestProgressLineComponent {
       [nzStrokeWidth]="strokeWidth"
       [nzPercent]="percent"
       [nzStrokeLinecap]="strokeLinecap"
-    >
-    </nz-progress>
+    ></nz-progress>
   `
 })
 export class NzTestProgressDashBoardComponent {
@@ -451,8 +477,7 @@ export class NzTestProgressDashBoardComponent {
       [nzGapPosition]="gapPosition"
       [nzStrokeColor]="strokeColor"
       [nzStrokeLinecap]="strokeLinecap"
-    >
-    </nz-progress>
+    ></nz-progress>
   `
 })
 export class NzTestProgressCircleComponent {
@@ -463,6 +488,20 @@ export class NzTestProgressCircleComponent {
 }
 
 @Component({
-  template: ` <nz-progress nzType="circle" [nzPercent]="75" [nzSuccessPercent]="60"></nz-progress> `
+  template: `
+    <nz-progress nzType="circle" [nzPercent]="75" [nzSuccessPercent]="60"></nz-progress>
+  `
 })
 export class NzTestProgressCircleSuccessComponent {}
+
+@Component({
+  template: `
+    <div [dir]="direction">
+      <nz-progress nzType="circle" [nzPercent]="75" [nzSuccessPercent]="60"></nz-progress>
+    </div>
+  `
+})
+export class NzTestProgressRtlComponent {
+  @ViewChild(Dir) dir!: Dir;
+  direction = 'rtl';
+}

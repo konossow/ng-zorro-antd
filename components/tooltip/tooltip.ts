@@ -3,14 +3,6 @@
  * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
  */
 
-/**
- * @license
- * Copyright Alibaba.com All Rights Reserved.
- *
- * Use of this source code is governed by an MIT-style license that can be
- * found in the LICENSE file at https://github.com/NG-ZORRO/ng-zorro-antd/blob/master/LICENSE
- */
-
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -29,10 +21,12 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import { zoomBigMotion } from 'ng-zorro-antd/core/animation';
+import { isPresetColor, NzPresetColor } from 'ng-zorro-antd/core/color';
 import { NzNoAnimationDirective } from 'ng-zorro-antd/core/no-animation';
 import { NgStyleInterface, NzTSType } from 'ng-zorro-antd/core/types';
 
-import { isTooltipEmpty, NzTooltipBaseComponent, NzTooltipBaseDirective, NzTooltipTrigger } from './base';
+import { Directionality } from '@angular/cdk/bidi';
+import { isTooltipEmpty, NzTooltipBaseComponent, NzTooltipBaseDirective, NzTooltipTrigger, PropertyMapping } from './base';
 
 @Directive({
   selector: '[nz-tooltip]',
@@ -42,19 +36,21 @@ import { isTooltipEmpty, NzTooltipBaseComponent, NzTooltipBaseDirective, NzToolt
   }
 })
 export class NzTooltipDirective extends NzTooltipBaseDirective {
-  @Input('nzTooltipTitle') specificTitle?: NzTSType | null;
-  @Input('nz-tooltip') directiveNameTitle?: NzTSType | null;
-  @Input('nzTooltipTrigger') specificTrigger?: NzTooltipTrigger;
-  @Input('nzTooltipPlacement') specificPlacement?: string;
-  @Input('nzTooltipOrigin') specificOrigin?: ElementRef<HTMLElement>;
-  @Input('nzTooltipVisible') specificVisible?: boolean;
-  @Input('nzTooltipMouseEnterDelay') specificMouseEnterDelay?: number;
-  @Input('nzTooltipMouseLeaveDelay') specificMouseLeaveDelay?: number;
-  @Input('nzTooltipOverlayClassName') specificOverlayClassName?: string;
-  @Input('nzTooltipOverlayStyle') specificOverlayStyle?: NgStyleInterface;
+  @Input('nzTooltipTitle') title?: NzTSType | null;
+  @Input('nz-tooltip') directiveTitle?: NzTSType | null;
+  @Input('nzTooltipTrigger') trigger?: NzTooltipTrigger = 'hover';
+  @Input('nzTooltipPlacement') placement?: string | string[] = 'top';
+  @Input('nzTooltipOrigin') origin?: ElementRef<HTMLElement>;
+  @Input('nzTooltipVisible') visible?: boolean;
+  @Input('nzTooltipMouseEnterDelay') mouseEnterDelay?: number;
+  @Input('nzTooltipMouseLeaveDelay') mouseLeaveDelay?: number;
+  @Input('nzTooltipOverlayClassName') overlayClassName?: string;
+  @Input('nzTooltipOverlayStyle') overlayStyle?: NgStyleInterface;
+  @Input() nzTooltipColor?: string;
 
   // tslint:disable-next-line:no-output-rename
-  @Output('nzTooltipVisibleChange') readonly specificVisibleChange = new EventEmitter<boolean>();
+  @Output('nzTooltipVisibleChange') readonly visibleChange = new EventEmitter<boolean>();
+
   componentFactory: ComponentFactory<NzToolTipComponent> = this.resolver.resolveComponentFactory(NzToolTipComponent);
 
   constructor(
@@ -65,6 +61,12 @@ export class NzTooltipDirective extends NzTooltipBaseDirective {
     @Host() @Optional() noAnimation?: NzNoAnimationDirective
   ) {
     super(elementRef, hostView, resolver, renderer, noAnimation);
+  }
+
+  protected getProxyPropertyMap(): PropertyMapping {
+    return {
+      nzTooltipColor: ['nzColor', () => this.nzTooltipColor]
+    };
   }
 }
 
@@ -81,15 +83,15 @@ export class NzTooltipDirective extends NzTooltipBaseDirective {
       nzConnectedOverlay
       [cdkConnectedOverlayOrigin]="origin"
       [cdkConnectedOverlayOpen]="_visible"
-      [cdkConnectedOverlayHasBackdrop]="_hasBackdrop"
       [cdkConnectedOverlayPositions]="_positions"
       [cdkConnectedOverlayPush]="true"
-      (backdropClick)="hide()"
+      (overlayOutsideClick)="onClickOutside($event)"
       (detach)="hide()"
       (positionChange)="onPositionChange($event)"
     >
       <div
         class="ant-tooltip"
+        [class.ant-tooltip-rtl]="dir === 'rtl'"
         [ngClass]="_classMap"
         [ngStyle]="nzOverlayStyle"
         [@.disabled]="noAnimation?.nzNoAnimation"
@@ -98,9 +100,9 @@ export class NzTooltipDirective extends NzTooltipBaseDirective {
       >
         <div class="ant-tooltip-content">
           <div class="ant-tooltip-arrow">
-            <span class="ant-tooltip-arrow-content"></span>
+            <span class="ant-tooltip-arrow-content" [ngStyle]="_contentStyleMap"></span>
           </div>
-          <div class="ant-tooltip-inner">
+          <div class="ant-tooltip-inner" [ngStyle]="_contentStyleMap">
             <ng-container *nzStringTemplateOutlet="nzTitle">{{ nzTitle }}</ng-container>
           </div>
         </div>
@@ -110,13 +112,35 @@ export class NzTooltipDirective extends NzTooltipBaseDirective {
   preserveWhitespaces: false
 })
 export class NzToolTipComponent extends NzTooltipBaseComponent {
-  @Input() nzTitle: NzTSType | null = null;
+  nzTitle: NzTSType | null = null;
 
-  constructor(cdr: ChangeDetectorRef, @Host() @Optional() public noAnimation?: NzNoAnimationDirective) {
-    super(cdr, noAnimation);
+  nzColor?: string | NzPresetColor;
+
+  _contentStyleMap: NgStyleInterface = {};
+
+  constructor(
+    cdr: ChangeDetectorRef,
+    @Optional() directionality: Directionality,
+    @Host() @Optional() public noAnimation?: NzNoAnimationDirective
+  ) {
+    super(cdr, directionality, noAnimation);
   }
 
   protected isEmpty(): boolean {
     return isTooltipEmpty(this.nzTitle);
+  }
+
+  updateStyles(): void {
+    const isColorPreset = this.nzColor && isPresetColor(this.nzColor);
+
+    this._classMap = {
+      [this.nzOverlayClassName]: true,
+      [`${this._prefix}-placement-${this.preferredPlacement}`]: true,
+      [`${this._prefix}-${this.nzColor}`]: isColorPreset
+    };
+
+    this._contentStyleMap = {
+      backgroundColor: !!this.nzColor && !isColorPreset ? this.nzColor : null
+    };
   }
 }

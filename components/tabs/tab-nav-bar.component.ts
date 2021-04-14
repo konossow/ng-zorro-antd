@@ -36,7 +36,7 @@ import { auditTime, takeUntil } from 'rxjs/operators';
 
 import { reqAnimFrame } from 'ng-zorro-antd/core/polyfill';
 import { NzResizeObserver } from 'ng-zorro-antd/core/resize-observers';
-import { NzSafeAny } from 'ng-zorro-antd/core/types';
+import { NumberInput, NzSafeAny } from 'ng-zorro-antd/core/types';
 
 import { NzTabPositionMode, NzTabScrollEvent, NzTabScrollListOffsetEvent } from './interfaces';
 import { NzTabAddButtonComponent } from './tab-add-button.component';
@@ -86,6 +86,8 @@ const CSS_TRANSFORM_TIME = 150;
   }
 })
 export class NzTabNavBarComponent implements OnInit, AfterViewInit, AfterContentChecked, OnDestroy, OnChanges {
+  static ngAcceptInputType_selectedIndex: NumberInput;
+
   @Output() readonly indexFocused: EventEmitter<number> = new EventEmitter<number>();
   @Output() readonly selectFocusedIndex: EventEmitter<number> = new EventEmitter<number>();
   @Output() readonly addClicked = new EventEmitter<void>();
@@ -183,14 +185,14 @@ export class NzTabNavBarComponent implements OnInit, AfterViewInit, AfterContent
     this.keyManager = new FocusKeyManager<NzTabNavItemDirective>(this.items)
       .withHorizontalOrientation(this.getLayoutDirection())
       .withWrap();
-    this.keyManager.updateActiveItem(0);
+    this.keyManager.updateActiveItem(this.selectedIndex);
 
     reqAnimFrame(realign);
 
     merge(this.nzResizeObserver.observe(this.navWarpRef), this.nzResizeObserver.observe(this.navListRef))
       .pipe(takeUntil(this.destroy$), auditTime(16, RESIZE_SCHEDULER))
       .subscribe(() => {
-        this.updateScrollListPosition();
+        realign();
       });
     merge(dirChange, resize, this.items.changes)
       .pipe(takeUntil(this.destroy$))
@@ -216,8 +218,8 @@ export class NzTabNavBarComponent implements OnInit, AfterViewInit, AfterContent
   }
 
   ngOnDestroy(): void {
-    window.clearTimeout(this.lockAnimationTimeoutId);
-    window.clearTimeout(this.cssTransformTimeWaitingId);
+    clearTimeout(this.lockAnimationTimeoutId);
+    clearTimeout(this.cssTransformTimeWaitingId);
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -266,7 +268,8 @@ export class NzTabNavBarComponent implements OnInit, AfterViewInit, AfterContent
   }
 
   handleKeydown(event: KeyboardEvent): void {
-    if (hasModifierKey(event)) {
+    const inNavigationList = this.navWarpRef.nativeElement.contains(event.target as HTMLElement);
+    if (hasModifierKey(event) || !inNavigationList) {
       return;
     }
 
@@ -335,7 +338,7 @@ export class NzTabNavBarComponent implements OnInit, AfterViewInit, AfterContent
       this.setTransform(0, newTransform);
     }
 
-    window.clearTimeout(this.cssTransformTimeWaitingId);
+    clearTimeout(this.cssTransformTimeWaitingId);
     this.cssTransformTimeWaitingId = setTimeout(() => {
       this.setVisibleRange();
     }, CSS_TRANSFORM_TIME);

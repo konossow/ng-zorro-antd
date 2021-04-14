@@ -16,7 +16,7 @@ describe('anchor', () => {
   let page: PageObject;
   let srv: NzScrollService;
   beforeEach(() => {
-    const i = TestBed.configureTestingModule({
+    TestBed.configureTestingModule({
       imports: [NzAnchorModule],
       declarations: [TestComponent]
     });
@@ -26,19 +26,17 @@ describe('anchor', () => {
     fixture.detectChanges();
     page = new PageObject();
     spyOn(context, '_scroll');
-    srv = i.get(NzScrollService);
+    srv = TestBed.inject(NzScrollService);
   });
   afterEach(() => context.comp.ngOnDestroy());
 
   describe('[default]', () => {
     it(`should scolling to target via click a link`, () => {
-      spyOn(srv, 'scrollTo').and.callFake(
-        (_containerEl: Element | Window, _targetTopValue: number = 0, _easing?: any, callback?: () => void) => {
-          if (callback) {
-            callback();
-          }
+      spyOn(srv, 'scrollTo').and.callFake((_containerEl, _targetTopValue = 0, options = {}) => {
+        if (options.callback) {
+          options.callback();
         }
-      );
+      });
       expect(context._scroll).not.toHaveBeenCalled();
       page.to('#何时使用');
       expect(context._scroll).toHaveBeenCalled();
@@ -152,10 +150,10 @@ describe('anchor', () => {
       });
     });
 
-    describe('[nzTarget]', () => {
+    describe('[nzContainer]', () => {
       it('with window', () => {
         spyOn(window, 'addEventListener');
-        context.nzTarget = window;
+        context.nzContainer = window;
         fixture.detectChanges();
         expect(window.addEventListener).toHaveBeenCalled();
       });
@@ -163,7 +161,7 @@ describe('anchor', () => {
         spyOn(context, '_click');
         const el = document.querySelector('#target')!;
         spyOn(el, 'addEventListener');
-        context.nzTarget = '#target';
+        context.nzContainer = '#target';
         fixture.detectChanges();
         expect(el.addEventListener).toHaveBeenCalled();
         page.to('#basic-target');
@@ -235,7 +233,7 @@ describe('anchor', () => {
       [nzBounds]="nzBounds"
       [nzShowInkInFixed]="nzShowInkInFixed"
       [nzOffsetTop]="nzOffsetTop"
-      [nzTarget]="nzTarget"
+      [nzContainer]="nzContainer"
       (nzClick)="_click($event)"
       (nzScroll)="_scroll($event)"
     >
@@ -291,7 +289,7 @@ export class TestComponent {
   nzBounds = 5;
   nzOffsetTop = 0;
   nzShowInkInFixed = false;
-  nzTarget: any = null;
+  nzContainer: any = null;
   _click() {}
   _scroll() {}
 }

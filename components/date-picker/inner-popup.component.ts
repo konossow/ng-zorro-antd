@@ -34,20 +34,19 @@ import { PREFIX_CLASS } from './util';
           <ng-container *ngSwitchCase="'decade'">
             <decade-header
               [(value)]="activeDate"
-              [locale]="locale!"
+              [locale]="locale"
               [showSuperPreBtn]="enablePrevNext('prev', 'decade')"
               [showSuperNextBtn]="enablePrevNext('next', 'decade')"
               [showNextBtn]="false"
               [showPreBtn]="false"
               (panelModeChange)="panelModeChange.emit($event)"
               (valueChange)="headerChange.emit($event)"
-            >
-            </decade-header>
+            ></decade-header>
             <div class="{{ prefixCls }}-body">
               <decade-table
-                [showWeek]="showWeek"
                 [activeDate]="activeDate"
                 [value]="value"
+                [locale]="locale"
                 (valueChange)="onChooseDecade($event)"
                 [disabledDate]="disabledDate"
               ></decade-table>
@@ -56,42 +55,48 @@ import { PREFIX_CLASS } from './util';
           <ng-container *ngSwitchCase="'year'">
             <year-header
               [(value)]="activeDate"
-              [locale]="locale!"
+              [locale]="locale"
               [showSuperPreBtn]="enablePrevNext('prev', 'year')"
               [showSuperNextBtn]="enablePrevNext('next', 'year')"
               [showNextBtn]="false"
               [showPreBtn]="false"
               (panelModeChange)="panelModeChange.emit($event)"
               (valueChange)="headerChange.emit($event)"
-            >
-            </year-header>
+            ></year-header>
             <div class="{{ prefixCls }}-body">
               <year-table
-                [showWeek]="showWeek"
                 [activeDate]="activeDate"
                 [value]="value"
-                (valueChange)="onChooseYear($event)"
+                [locale]="locale"
                 [disabledDate]="disabledDate"
+                [selectedValue]="selectedValue"
+                [hoverValue]="hoverValue"
+                (valueChange)="onChooseYear($event)"
+                (cellHover)="cellHover.emit($event)"
               ></year-table>
             </div>
           </ng-container>
           <ng-container *ngSwitchCase="'month'">
             <month-header
               [(value)]="activeDate"
-              [locale]="locale!"
+              [locale]="locale"
+              [showSuperPreBtn]="enablePrevNext('prev', 'month')"
+              [showSuperNextBtn]="enablePrevNext('next', 'month')"
               [showNextBtn]="false"
               [showPreBtn]="false"
               (panelModeChange)="panelModeChange.emit($event)"
               (valueChange)="headerChange.emit($event)"
-            >
-            </month-header>
+            ></month-header>
             <div class="{{ prefixCls }}-body">
               <month-table
-                [showWeek]="showWeek"
                 [value]="value"
                 [activeDate]="activeDate"
+                [locale]="locale"
                 [disabledDate]="disabledDate"
+                [selectedValue]="selectedValue"
+                [hoverValue]="hoverValue"
                 (valueChange)="onChooseMonth($event)"
+                (cellHover)="cellHover.emit($event)"
               ></month-table>
             </div>
           </ng-container>
@@ -99,27 +104,26 @@ import { PREFIX_CLASS } from './util';
           <ng-container *ngSwitchDefault>
             <date-header
               [(value)]="activeDate"
-              [locale]="locale!"
-              [showSuperPreBtn]="enablePrevNext('prev', 'date')"
-              [showSuperNextBtn]="enablePrevNext('next', 'date')"
-              [showPreBtn]="enablePrevNext('prev', 'date')"
-              [showNextBtn]="enablePrevNext('next', 'date')"
+              [locale]="locale"
+              [showSuperPreBtn]="showWeek ? enablePrevNext('prev', 'week') : enablePrevNext('prev', 'date')"
+              [showSuperNextBtn]="showWeek ? enablePrevNext('next', 'week') : enablePrevNext('next', 'date')"
+              [showPreBtn]="showWeek ? enablePrevNext('prev', 'week') : enablePrevNext('prev', 'date')"
+              [showNextBtn]="showWeek ? enablePrevNext('next', 'week') : enablePrevNext('next', 'date')"
               (panelModeChange)="panelModeChange.emit($event)"
               (valueChange)="headerChange.emit($event)"
-            >
-            </date-header>
+            ></date-header>
             <div class="{{ prefixCls }}-body">
               <date-table
-                [locale]="locale!"
+                [locale]="locale"
                 [showWeek]="showWeek"
                 [value]="value"
                 [activeDate]="activeDate"
-                (valueChange)="onSelectDate($event)"
                 [disabledDate]="disabledDate"
                 [cellRender]="dateRender"
                 [selectedValue]="selectedValue"
                 [hoverValue]="hoverValue"
-                (dayHover)="dayHover.emit($event)"
+                (valueChange)="onSelectDate($event)"
+                (cellHover)="cellHover.emit($event)"
               ></date-table>
             </div>
           </ng-container>
@@ -163,12 +167,11 @@ export class InnerPopupComponent implements OnChanges {
   @Input() partType!: RangePartType;
 
   @Output() readonly panelModeChange = new EventEmitter<NzDateMode>();
-
   // TODO: name is not proper
   @Output() readonly headerChange = new EventEmitter<CandyDate>(); // Emitted when user changed the header's value
   @Output() readonly selectDate = new EventEmitter<CandyDate>(); // Emitted when the date is selected by click the date panel
   @Output() readonly selectTime = new EventEmitter<CandyDate>();
-  @Output() readonly dayHover = new EventEmitter<CandyDate>(); // Emitted when hover on a day by mouse enter
+  @Output() readonly cellHover = new EventEmitter<CandyDate>(); // Emitted when hover on a day by mouse enter
 
   prefixCls: string = PREFIX_CLASS;
 

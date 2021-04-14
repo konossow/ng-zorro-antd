@@ -1,5 +1,6 @@
+import { BidiModule, Dir } from '@angular/cdk/bidi';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DebugElement, OnInit, TemplateRef, ViewChild } from '@angular/core';
-import { async, ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed, tick, waitForAsync } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
 import { NzDividerModule } from 'ng-zorro-antd/divider';
@@ -12,21 +13,24 @@ import { NzStepsComponent } from './steps.component';
 import { NzStepsModule } from './steps.module';
 
 describe('steps', () => {
-  beforeEach(async(() => {
-    TestBed.configureTestingModule({
-      imports: [NzStepsModule, NzIconTestModule, NzDividerModule],
-      declarations: [
-        NzTestOuterStepsComponent,
-        NzDemoStepsClickableComponent,
-        NzTestInnerStepStringComponent,
-        NzTestInnerStepTemplateComponent,
-        NzTestStepForComponent,
-        NzTestStepAsyncComponent,
-        NzDemoStepsNavComponent
-      ]
-    });
-    TestBed.compileComponents();
-  }));
+  beforeEach(
+    waitForAsync(() => {
+      TestBed.configureTestingModule({
+        imports: [BidiModule, NzStepsModule, NzIconTestModule, NzDividerModule],
+        declarations: [
+          NzTestOuterStepsComponent,
+          NzDemoStepsClickableComponent,
+          NzTestInnerStepStringComponent,
+          NzTestInnerStepTemplateComponent,
+          NzTestStepForComponent,
+          NzTestStepAsyncComponent,
+          NzDemoStepsNavComponent,
+          NzTestOuterStepsRtlComponent
+        ]
+      });
+      TestBed.compileComponents();
+    })
+  );
   describe('outer steps', () => {
     let fixture: ComponentFixture<NzTestOuterStepsComponent>;
     let testComponent: NzTestOuterStepsComponent;
@@ -394,6 +398,24 @@ describe('steps', () => {
       fixture.detectChanges();
       expect(testComponent.onIndexChange).not.toHaveBeenCalled();
     }));
+
+    it('should enable and disable work', fakeAsync(() => {
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+      innerSteps[1].componentInstance.disable();
+      fixture.detectChanges();
+      spyOn(testComponent, 'onIndexChange');
+      innerSteps[1].nativeElement.querySelector('.ant-steps-item-container').click();
+      fixture.detectChanges();
+      expect(testComponent.onIndexChange).not.toHaveBeenCalled();
+      innerSteps[1].componentInstance.enable();
+      fixture.detectChanges();
+      innerSteps[1].nativeElement.querySelector('.ant-steps-item-container').click();
+      fixture.detectChanges();
+      expect(testComponent.onIndexChange).toHaveBeenCalledTimes(1);
+      expect(testComponent.onIndexChange).toHaveBeenCalledWith(1);
+    }));
   });
 
   describe('navigation', () => {
@@ -417,9 +439,26 @@ describe('steps', () => {
         });
     }));
   });
+  describe('RTL', () => {
+    it('should className correct on dir change', fakeAsync(() => {
+      const fixture = TestBed.createComponent(NzTestOuterStepsRtlComponent);
+      const outStep = fixture.debugElement.query(By.directive(NzStepsComponent));
+      fixture.componentInstance.direction = 'rtl';
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+      expect(outStep.nativeElement.firstElementChild.classList).toContain('ant-steps-rtl');
+
+      fixture.componentInstance.direction = 'ltr';
+      fixture.detectChanges();
+      expect(outStep.nativeElement.firstElementChild.classList).not.toContain('ant-steps-rtl');
+    }));
+  });
 });
 
 @Component({
+  // tslint:disable-next-line:no-selector
+  selector: 'nz-test-outer-steps',
   template: `
     <nz-steps
       [nzCurrent]="current"
@@ -529,4 +568,16 @@ export class NzTestStepAsyncComponent implements OnInit {
       this.steps = [1, 2, 3];
     }, 1000);
   }
+}
+
+@Component({
+  template: `
+    <div [dir]="direction">
+      <nz-test-outer-steps></nz-test-outer-steps>
+    </div>
+  `
+})
+export class NzTestOuterStepsRtlComponent {
+  @ViewChild(Dir) dir!: Dir;
+  direction = 'rtl';
 }

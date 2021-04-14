@@ -6,6 +6,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   EventEmitter,
   Input,
   OnChanges,
@@ -41,10 +42,7 @@ import { NzPaginationI18nInterface } from 'ng-zorro-antd/i18n';
       <input [disabled]="disabled" (keydown.enter)="jumpToPageViaInput($event)" />
       {{ locale.page }}
     </div>
-  `,
-  host: {
-    '[class.ant-pagination-options]': 'true'
-  }
+  `
 })
 export class NzPaginationOptionsComponent implements OnChanges {
   @Input() nzSize: 'default' | 'small' = 'default';
@@ -60,6 +58,11 @@ export class NzPaginationOptionsComponent implements OnChanges {
   @Output() readonly pageSizeChange = new EventEmitter<number>();
   listOfPageSizeOption: Array<{ value: number; label: string }> = [];
 
+  constructor(private elementRef: ElementRef) {
+    // TODO: move to host after View Engine deprecation
+    this.elementRef.nativeElement.classList.add('ant-pagination-options');
+  }
+
   onPageSizeChange(size: number): void {
     if (this.pageSize !== size) {
       this.pageSizeChange.next(size);
@@ -68,7 +71,7 @@ export class NzPaginationOptionsComponent implements OnChanges {
 
   jumpToPageViaInput($event: Event): void {
     const target = $event.target as HTMLInputElement;
-    const index = toNumber(target.value, this.pageIndex);
+    const index = Math.floor(toNumber(target.value, this.pageIndex));
     this.pageIndexChange.next(index);
     target.value = '';
   }
