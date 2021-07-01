@@ -4,10 +4,10 @@
  */
 
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
-import { isPromise } from 'ng-zorro-antd/core/util';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
+import { isPromise } from 'ng-zorro-antd/core/util';
 import { NzI18nService, NzModalI18nInterface } from 'ng-zorro-antd/i18n';
 
 import { NzModalRef } from './modal-ref';
@@ -18,7 +18,9 @@ import { ModalButtonOptions, ModalOptions } from './modal-types';
   exportAs: 'NzModalFooterBuiltin',
   template: `
     <ng-container *ngIf="config.nzFooter; else defaultFooterButtons">
-      <ng-container *nzStringTemplateOutlet="config.nzFooter; context: { $implicit: config.nzComponentParams, modalRef: modalRef }">
+      <ng-container
+        *nzStringTemplateOutlet="config.nzFooter; context: { $implicit: config.nzComponentParams, modalRef: modalRef }"
+      >
         <div *ngIf="!buttonsFooter" [innerHTML]="config.nzFooter"></div>
         <ng-container *ngIf="buttonsFooter">
           <button

@@ -4,6 +4,7 @@
  */
 
 import { AnimationEvent } from '@angular/animations';
+import { Direction, Directionality } from '@angular/cdk/bidi';
 import {
   AfterContentInit,
   AfterViewInit,
@@ -26,14 +27,14 @@ import {
   ViewChildren,
   ViewEncapsulation
 } from '@angular/core';
+import { defer, merge, Observable, Subject, Subscription } from 'rxjs';
+import { filter, switchMap, take, takeUntil } from 'rxjs/operators';
+
 import { slideMotion } from 'ng-zorro-antd/core/animation';
 import { NzNoAnimationDirective } from 'ng-zorro-antd/core/no-animation';
 import { BooleanInput, CompareWith, NzSafeAny } from 'ng-zorro-antd/core/types';
 import { InputBoolean } from 'ng-zorro-antd/core/util';
-import { defer, merge, Observable, Subject, Subscription } from 'rxjs';
-import { filter, switchMap, take, takeUntil } from 'rxjs/operators';
 
-import { Direction, Directionality } from '@angular/cdk/bidi';
 import { NzAutocompleteOptionComponent, NzOptionSelectionChange } from './autocomplete-option.component';
 
 export interface AutocompleteDataSourceItem {
@@ -101,7 +102,7 @@ export class NzAutocompleteComponent implements AfterContentInit, AfterViewInit,
 
   showPanel: boolean = true;
   isOpen: boolean = false;
-  activeItem!: NzAutocompleteOptionComponent;
+  activeItem: NzAutocompleteOptionComponent | null = null;
   dir: Direction = 'ltr';
   private destroy$ = new Subject<void>();
   animationStateChange = new EventEmitter<AnimationEvent>();
@@ -198,14 +199,18 @@ export class NzAutocompleteComponent implements AfterContentInit, AfterViewInit,
   }
 
   setActiveItem(index: number): void {
-    const activeItem = this.options.toArray()[index];
+    const activeItem = this.options.get(index);
     if (activeItem && !activeItem.active) {
       this.activeItem = activeItem;
       this.activeItemIndex = index;
       this.clearSelectedOptions(this.activeItem);
       this.activeItem.setActiveStyles();
-      this.changeDetectorRef.markForCheck();
+    } else {
+      this.activeItem = null;
+      this.activeItemIndex = -1;
+      this.clearSelectedOptions();
     }
+    this.changeDetectorRef.markForCheck();
   }
 
   setNextItemActive(): void {
@@ -219,9 +224,11 @@ export class NzAutocompleteComponent implements AfterContentInit, AfterViewInit,
   }
 
   getOptionIndex(value: NzSafeAny): number {
-    return this.options.reduce((result: number, current: NzAutocompleteOptionComponent, index: number) => {
-      return result === -1 ? (this.compareWith(value, current.nzValue) ? index : -1) : result;
-    }, -1)!;
+    return this.options.reduce(
+      (result: number, current: NzAutocompleteOptionComponent, index: number) =>
+        result === -1 ? (this.compareWith(value, current.nzValue) ? index : -1) : result,
+      -1
+    )!;
   }
 
   getOption(value: NzSafeAny): NzAutocompleteOptionComponent | null {

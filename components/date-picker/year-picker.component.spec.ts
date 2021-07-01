@@ -51,7 +51,7 @@ describe('NzYearPickerComponent', () => {
       openPickerByClickTrigger();
       expect(getPickerContainer()).not.toBeNull();
 
-      dispatchFakeEvent(getPickerInput(fixture.debugElement), 'blur');
+      dispatchFakeEvent(getPickerInput(fixture.debugElement), 'focusout');
       fixture.detectChanges();
       tick(500);
       fixture.detectChanges();
@@ -150,7 +150,9 @@ describe('NzYearPickerComponent', () => {
       fixture.detectChanges();
 
       openPickerByClickTrigger();
-      const disabledCell = overlayContainerElement.querySelector('.ant-picker-year-panel tr td.ant-picker-cell-disabled')!;
+      const disabledCell = overlayContainerElement.querySelector(
+        '.ant-picker-year-panel tr td.ant-picker-cell-disabled'
+      )!;
       expect(disabledCell.textContent).toContain('2013');
     }));
 
@@ -197,7 +199,7 @@ describe('NzYearPickerComponent', () => {
       openPickerByClickTrigger();
       expect(nzOnOpenChange).toHaveBeenCalledWith(true);
 
-      dispatchFakeEvent(getPickerInput(fixture.debugElement), 'blur');
+      dispatchFakeEvent(getPickerInput(fixture.debugElement), 'focusout');
       fixture.detectChanges();
       flush();
       expect(nzOnOpenChange).toHaveBeenCalledWith(false);
@@ -319,7 +321,9 @@ describe('NzYearPickerComponent', () => {
   }
 
   function getSecondYearCell(): HTMLElement {
-    return queryFromOverlay('.ant-picker-year-panel td.ant-picker-cell:nth-child(2) .ant-picker-cell-inner') as HTMLElement;
+    return queryFromOverlay(
+      '.ant-picker-year-panel td.ant-picker-cell:nth-child(2) .ant-picker-cell-inner'
+    ) as HTMLElement;
   }
 
   function queryFromOverlay(selector: string): HTMLElement {
@@ -381,7 +385,7 @@ class NzTestYearPickerComponent {
   nzAutoFocus: boolean = false;
   nzDisabled: boolean = false;
   nzDisabledDate?: (d: Date) => boolean;
-  nzLocale: any; // tslint:disable-line:no-any
+  nzLocale: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   nzPlaceHolder?: string;
   nzPopupStyle?: NgStyleInterface;
   nzDropdownClassName?: string;
